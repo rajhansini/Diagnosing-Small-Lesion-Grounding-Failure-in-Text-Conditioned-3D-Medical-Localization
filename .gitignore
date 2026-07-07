@@ -1,0 +1,15 @@
+# Raw and preprocessed data (12GB, download separately, see README)
+data/
+
+# Trained model weights (see README for how to regenerate)
+checkpoints/
+
+# SLURM job stdout logs
+logs/
+
+# Python
+__pycache__/
+*.pyc
+
+# Pandoc/LaTeX build artifacts
+tex2pdf.*
