@@ -1,4 +1,5 @@
 """RQ1: size-stratified Dice/IoU evaluation of text-conditioned localization on held-out patients."""
+import argparse
 import csv
 import os
 import random
@@ -13,7 +14,7 @@ from text_encoder import REGION_ORDER
 
 PREPROCESSED_DIR = "/net/projects/ranalab/rajhansini/nlp_project/data/preprocessed"
 TEXT_EMB_PATH = os.path.join(PREPROCESSED_DIR, "subregion_text_embeddings.pt")
-CKPT_PATH = "/net/projects/ranalab/rajhansini/nlp_project/checkpoints/baseline_aligner.pt"
+CKPT_DIR = "/net/projects/ranalab/rajhansini/nlp_project/checkpoints"
 LESION_CSV = os.path.join(PREPROCESSED_DIR, "lesion_volumes.csv")
 RESULTS_DIR = "/net/projects/ranalab/rajhansini/nlp_project/results"
 
@@ -60,21 +61,28 @@ def load_true_volumes():
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--seed", type=int, default=0, help="must match the seed used for train_baseline.py's split")
+    args = parser.parse_args()
+
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    print("device:", device)
+    print("device:", device, "| seed:", args.seed)
 
     true_volumes = load_true_volumes()
 
     text_embeds_dict = torch.load(TEXT_EMB_PATH, weights_only=True)
     text_embeds = torch.stack([text_embeds_dict[r] for r in REGION_ORDER])
 
+    ckpt_name = "baseline_aligner.pt" if args.seed == 0 else f"baseline_aligner_seed{args.seed}.pt"
+    ckpt_path = os.path.join(CKPT_DIR, ckpt_name)
+
     model = TextVolumeAligner(text_dim=text_embeds.shape[1]).to(device)
-    model.load_state_dict(torch.load(CKPT_PATH, map_location=device, weights_only=True))
+    model.load_state_dict(torch.load(ckpt_path, map_location=device, weights_only=True))
     model.eval()
     with torch.no_grad():
         text_proj = model.encode_text(text_embeds.to(device))
 
-    random.seed(0)
+    random.seed(args.seed)
     patient_ids = sorted(f[:-4] for f in os.listdir(PREPROCESSED_DIR) if f.endswith(".npz"))
     random.shuffle(patient_ids)
     n_val = max(1, int(0.2 * len(patient_ids)))
@@ -107,7 +115,8 @@ def main():
             })
             print(f"[{region}] ({i + 1}/{len(val_ids)}) {pid}: bin={bin_label} true_vol={true_vol:.0f}mm3 dice={dice:.3f} iou={iou:.3f}")
 
-    csv_path = os.path.join(RESULTS_DIR, "rq1_localization_scores.csv")
+    csv_name = "rq1_localization_scores.csv" if args.seed == 0 else f"rq1_localization_scores_seed{args.seed}.csv"
+    csv_path = os.path.join(RESULTS_DIR, csv_name)
     with open(csv_path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=["patient_id", "region", "size_bin", "true_volume_mm3", "dice", "iou"])
         writer.writeheader()

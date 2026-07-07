@@ -50,9 +50,10 @@ def main():
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     parser.add_argument("--limit_patients", type=int, default=None, help="for quick smoke tests")
     parser.add_argument("--num_workers", type=int, default=2)
+    parser.add_argument("--seed", type=int, default=0, help="controls the train/val split, for cross-validation across seeds")
     args = parser.parse_args()
 
-    random.seed(0)
+    random.seed(args.seed)
     patient_ids = get_patient_ids()
     random.shuffle(patient_ids)
     if args.limit_patients:
@@ -80,7 +81,8 @@ def main():
         val_loss, val_acc = run_epoch(model, val_loader, text_embeds, optimizer, args.temperature, args.device, train=False)
         print(f"epoch {epoch + 1}/{args.epochs}: train_loss={train_loss:.4f} train_acc={train_acc:.3f} | val_loss={val_loss:.4f} val_acc={val_acc:.3f}")
 
-    ckpt_path = os.path.join(CKPT_DIR, "baseline_aligner.pt")
+    ckpt_name = "baseline_aligner.pt" if args.seed == 0 else f"baseline_aligner_seed{args.seed}.pt"
+    ckpt_path = os.path.join(CKPT_DIR, ckpt_name)
     torch.save(model.state_dict(), ckpt_path)
     print(f"Saved model to {ckpt_path}")
 
