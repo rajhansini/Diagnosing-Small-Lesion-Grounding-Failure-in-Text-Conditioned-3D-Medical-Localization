@@ -4,7 +4,7 @@ MPCS 53113 Natural Language Processing mini-project, University of Chicago.
 
 ## Problem
 
-Text-conditioned 3D medical models can detect that a lesion exists but often fail to localize it precisely when it's small, collapsing to oversized and imprecise regions instead. This project quantifies that failure on BraTS2020 brain MRI, then tests four candidate fixes (size-conditioned prompting, multi-scale windowing, scale-matched retraining, and naturalistic text) with statistically corrected paired testing throughout.
+Text-conditioned 3D medical models can detect that a lesion exists but often fail to localize it precisely when it's small, collapsing to oversized and imprecise regions instead. This project quantifies that failure on BraTS2020 brain MRI, then runs a series of ablation studies against candidate fixes (size-conditioned prompting, multi-scale windowing, scale-matched retraining, an embedding-collapse repair, and naturalistic text) with statistically corrected paired testing throughout.
 
 ## Methodology
 
@@ -12,7 +12,7 @@ PubMedBERT text embeddings (mean-pooled region descriptions) are aligned with 3D
 
 ## Findings
 
-The contrastive alignment baseline learns genuine signal (validation accuracy 0.671 vs. 0.25 chance). The core result: localization quality collapses monotonically with lesion size across all three tumor subregions (5 to 15x Dice degradation from large to small), surviving a chance-level control, and replicating exactly (9 of 9 region×bin comparisons) across two additional independent train/val splits. Size-conditioned prompting improves medium/large lesions but significantly worsens small enhancing-tumor localization. Isolating a single smaller sliding window improves tumor core and whole tumor localization after correcting for multiple comparisons; pushing the window size down further (12³, then 8³) shows the improvement continuing with no plateau, and the enhancing-tumor region's statistical picture actually strengthens at smaller windows, clearing full-family-corrected significance at 8³. Retraining with scale-matched patches reaches better classification accuracy but produces significantly worse localization everywhere; a pure-noise probe confirms the model keys off resize-interpolation artifacts rather than genuine tumor content, a directly-verified case of shortcut learning. Replacing templated text with naturalistic radiology-style language reproduces the original finding almost exactly, ruling out template phrasing as a confound.
+The contrastive alignment baseline learns genuine signal (validation accuracy 0.671 vs. 0.25 chance). The core result: localization quality collapses monotonically with lesion size across all three tumor subregions (5 to 15x Dice degradation from large to small), surviving a chance-level control, and replicating exactly (9 of 9 region×bin comparisons) across two additional independent train/val splits. Size-conditioned prompting improves medium/large lesions but significantly worsens small enhancing-tumor localization. Isolating a single smaller sliding window improves tumor core and whole tumor localization after correcting for multiple comparisons; pushing the window size down further (12³, then 8³) shows the improvement continuing with no plateau, and the enhancing-tumor region's statistical picture actually strengthens at smaller windows, clearing full-family-corrected significance at 8³ — pushed one step further to 6³, the trend plateaus for enhancing tumor and tumor core specifically, while whole tumor (the largest region) keeps improving. Retraining with scale-matched patches reaches better classification accuracy but produces significantly worse localization everywhere; a pure-noise probe confirms the model keys off resize-interpolation artifacts rather than genuine tumor content, a directly-verified case of shortcut learning, with a generic bias toward the "large" class acting as an embedding-space hub. A follow-up attempt to directly repair that hub with a uniformity regularizer fixes 2 of 3 shortcut behaviors and beats the scale-matched model in all 9 region×size-bin combinations, but still falls short of the plain baseline in most bins — the simplest fix (the isolated smaller window, no retraining) remains the best-performing intervention found. Replacing templated text with naturalistic radiology-style language reproduces the original finding almost exactly, ruling out template phrasing as a confound.
 
 Full writeup: [`report_draft.pdf`](report_draft.pdf) / [`report_draft.md`](report_draft.md).
 
@@ -36,9 +36,9 @@ Not included in this repo (see below for how to regenerate):
 3. **Preprocess**: `python src/preprocess.py` — normalizes volumes, resizes to 128³, computes per-patient lesion volumes for size-bin stratification.
 4. **Text embeddings**: `python src/text_encoder.py` — embeds all region descriptions (base, size-conditioned, and naturalistic variants) with PubMedBERT.
 5. **Train the P′ baseline**: `python src/train_baseline.py` (see `slurm/train_baseline.sbatch` for the cluster job).
-6. **Run RQ1 through RQ5**: see the corresponding `train_rqN.py` / `evaluate_rqN.py` scripts and their matching `slurm/*.sbatch` files.
+6. **Run RQ1 through RQ6**: see the corresponding `train_rqN.py` / `evaluate_rqN.py` scripts and their matching `slurm/*.sbatch` files.
 7. **Statistical analysis**: `python src/analyze_all_comparisons.py` reproduces every paired significance test with BH-FDR correction.
-8. **Figures**: `python src/make_figures.py`, `python src/make_figure4_scale_comparison.py`, `python src/make_overlay_figure.py`.
+8. **Figures**: `python src/make_figures.py`, `python src/make_figure4_scale_comparison.py`, `python src/make_overlay_figure.py`, `python src/make_figure5_window_curve.py`, `python src/make_figure_architecture.py`, `python src/make_figure_leaderboard.py`, `python src/make_figure_roadmap.py`, `python src/make_figure_significance_heatmap.py`.
 
 ## Attribution
 

@@ -1,5 +1,6 @@
-"""Figure 5: Dice vs. sliding-window size (32/16/12/8), one line per region, showing the trend
-continues (no reversal yet) as the receptive field shrinks further below the original 32^3 baseline."""
+"""Figure 5: Dice vs. sliding-window size (32/16/12/8/6), one line per region. The trend continues
+through 8, then plateaus for ET/TC at 6 while WT keeps improving (confirmed statistically n.s.
+for ET/TC, p<0.05 for WT between 8 and 6)."""
 import csv
 import os
 
@@ -12,12 +13,13 @@ RESULTS_DIR = "/net/projects/ranalab/rajhansini/nlp_project/results"
 FIGURES_DIR = "/net/projects/ranalab/rajhansini/nlp_project/figures"
 
 REGION_COLORS = {"ET": "#0072B2", "TC": "#D55E00", "WT": "#009E73"}  # Okabe-Ito, consistent identity per region
-WINDOW_SIZES = [32, 16, 12, 8]
+WINDOW_SIZES = [32, 16, 12, 8, 6]
 FILES = {
     32: "rq1_localization_scores.csv",
     16: "rq3b_scale16only_scores.csv",
     12: "rq3c_window12_scores.csv",
     8: "rq3c_window8_scores.csv",
+    6: "rq3c_window6_scores.csv",
 }
 
 

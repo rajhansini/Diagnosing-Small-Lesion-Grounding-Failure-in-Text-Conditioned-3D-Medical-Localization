@@ -27,6 +27,7 @@ All files below were written by me for this project. None contain code copied fr
 | `train_rq2.py` | 94 | RQ2: 10-way size-conditioned contrastive classification, fixed 32³ patches. |
 | `train_rq4.py` | 94 | RQ4: 10-way size-conditioned classification with scale-matched patch sampling. |
 | `train_rq5.py` | 94 | RQ5: same as baseline, trained against naturalistic-text embeddings instead of templated. |
+| `train_rq6.py` | 110 | RQ6: same scale-matched setup as RQ4, plus a uniformity regularizer (`uniformity_loss`) penalizing high pairwise cosine similarity among the projected text class embeddings, to break up the "large"-class embedding hub RQ4 diagnosed. |
 
 ## Evaluation
 
@@ -36,12 +37,15 @@ All files below were written by me for this project. None contain code copied fr
 | `evaluate_rq2.py` | 101 | Evaluates RQ2 with the size-phrasing ensemble (max over small/medium/large text queries). |
 | `evaluate_rq3_multiscale.py` | 104 | RQ3: multi-scale window ensemble (16³/32³/64³, max combination) on the frozen RQ1 model. |
 | `evaluate_rq3b_scale16_only.py` | 73 | RQ3b: isolates the 16³ window alone (no ensembling) to separate the receptive-field effect from the ensembling effect. |
-| `evaluate_window_sweep.py` | 85 | RQ3c: generalizes RQ3b to any single (window_size, stride) pair via CLI args. Used for the 12³ and 8³ points extending the window-size curve. |
+| `evaluate_window_sweep.py` | 85 | RQ3c: generalizes RQ3b to any single (window_size, stride) pair via CLI args. Used for the 12³, 8³, and 6³ points extending the window-size curve. |
 | `evaluate_rq4.py` | 106 | Evaluates RQ4 with scale-matched window querying per size-phrasing. |
 | `evaluate_rq5.py` | 92 | Size-stratified evaluation for the naturalistic-text model. |
+| `evaluate_rq6.py` | 104 | Evaluates RQ6 with the same scale-matched ensemble protocol as RQ4, for a direct paired comparison. |
+| `evaluate_rq6_single_scale.py` | 104 | Oracle test (uses the true size bin to pick a single matched scale, no ensembling) isolating whether RQ6's benefit comes from the embedding fix or from cross-scale ensembling. |
 | `compute_chance_baseline.py` | 55 | Random-noise-heatmap control run through the identical Otsu+Dice pipeline, on the same patients/regions as RQ1. |
 | `sanity_check_localize.py` | 71 | Verifies the sliding-window heatmap scores higher inside the true region than outside, before trusting it for evaluation. |
 | `test_rq4_shortcut_hypothesis.py` | 96 | Feeds pure random noise through RQ4's three resize pipelines and checks whether the model still assigns systematically different scores, i.e. whether it learned resize artifacts rather than content. |
+| `test_rq6_hub_bias.py` | 65 | Re-runs the RQ4 noise probe on the RQ6 checkpoint to verify the uniformity regularizer actually broke up the embedding hub, rather than just improving accuracy. |
 
 ## Analysis and figures
 
@@ -52,7 +56,11 @@ All files below were written by me for this project. None contain code copied fr
 | `make_figures.py` | 97 | Figure 1 (Dice vs. volume scatter with chance overlay) and Figure 2 (RQ1 vs. RQ2 bar chart). |
 | `make_overlay_figure.py` | 58 | Figure 3: qualitative heatmap overlay on example large/small lesion slices. |
 | `make_figure4_scale_comparison.py` | 62 | Figure: RQ1 vs. RQ3b vs. RQ4 grouped bar chart. |
-| `make_figure5_window_curve.py` | 57 | Figure: mean Dice vs. window size (32³/16³/12³/8³), one line per region, for the RQ3c curve. |
+| `make_figure5_window_curve.py` | 57 | Figure: mean Dice vs. window size (32³/16³/12³/8³/6³), one line per region, for the RQ3c curve, showing the plateau at 6³ for ET/TC. |
 | `generate_example_heatmaps.py` | 50 | Recomputes and saves the two example heatmaps used by `make_overlay_figure.py`. |
+| `make_figure_architecture.py` | 79 | Pipeline schematic (Method section): contrastive alignment at training time and sliding-window heatmap extraction at inference time. |
+| `make_figure_leaderboard.py` | 61 | Leaderboard bar chart: mean Dice for every method (RQ1/RQ2/RQ3c/RQ4/RQ6), one panel per region, bars grouped by size bin. |
+| `make_figure_roadmap.py` | 73 | Decision-tree diagram of every ablation attempted (RQ1 through RQ6), color-coded by whether the outcome helped, hurt, or partially fixed the prior problem. |
+| `make_figure_significance_heatmap.py` | 96 | Heatmap of every paired significance test run in the project (RQ1 baseline vs. each ablation, by region×size-bin), recomputing Wilcoxon tests and BH-FDR correction directly from the saved CSVs. |
 
-**Total: 2,326 lines across 26 files.**
+**Total: 3,018 lines across 34 files.**
