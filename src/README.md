@@ -2,7 +2,7 @@
 
 **Attribution.** Every file below was written by me for this project. None contains code copied from another project, another assignment, or a third-party codebase. Third-party libraries (PyTorch, MONAI, Hugging Face Transformers, scikit-image, SciPy, matplotlib) and the pretrained PubMedBERT weights are used through their public APIs and package installs; nothing is vendored into this repository.
 
-**Totals: 53 files, 6,866 lines.** Line counts below are `wc -l` including docstrings and comments.
+**Totals: 54 files, 7,131 lines.** Line counts below are `wc -l` including docstrings and comments.
 
 Run order for a full reproduction is documented in the [root README](../README.md).
 
@@ -95,6 +95,7 @@ Run order for a full reproduction is documented in the [root README](../README.m
 | `make_figure_leaderboard.py` | 70 | Leaderboard bars: every method's mean Dice, one panel per region. |
 | `make_figure_roadmap.py` | 101 | Decision-tree diagram of every ablation, colour-coded by outcome. |
 | `make_figure_significance_heatmap.py` | 105 | Every paired significance test as one heatmap, recomputing the tests from the CSVs. |
+| `make_figures_rq7_rq8_rq12.py` | 265 | The four late-experiment figures: the RQ12 threshold reversal, RQ7 per-seed deltas against the retraining noise floor, RQ8 heatmap correlations under query manipulation, and the P′ supervised-vs-text-conditioned size comparison. |
 
 ---
 

@@ -4,11 +4,13 @@ MPCS 53113 Natural Language Processing mini-project, University of Chicago.
 
 ## Problem
 
-Text-conditioned 3D medical models can detect that a lesion exists but often fail to localize it precisely when it's small, collapsing to oversized and imprecise regions instead. This project quantifies that failure on BraTS2020 brain MRI, then runs a series of ablation studies against candidate fixes (size-conditioned prompting, multi-scale windowing, scale-matched retraining, an embedding-collapse repair, and naturalistic text) with statistically corrected paired testing throughout.
+Text-conditioned 3D medical models can detect that a lesion exists but often fail to localize it precisely when it's small, collapsing to oversized and imprecise regions instead. This project quantifies that failure on BraTS2020 brain MRI, then asks three questions about it: **is it real** (validated against a supervised reference and a chance control), **is it linguistic** (text-encoder ablations and compositionality probes), and **can it be fixed** (five candidate interventions) — with statistically corrected paired testing throughout, and with each conclusion re-checked by a control designed to break it.
 
 ## Methodology
 
-PubMedBERT text embeddings (mean-pooled region descriptions) are aligned with 3D ResNet-10 patch embeddings (MONAI) in a shared contrastive space, trained on 32³ patches sampled from BraTS2020 volumes (128³, z-score normalized) against four classes: enhancing tumor, tumor core, whole tumor, and normal tissue. Since the trained model globally pools each patch to a single embedding, Grad-CAM isn't viable, so localization is done via a sliding-window similarity map, sweeping the trained encoder across the full volume and thresholding with Otsu's method to get a predicted mask. Evaluation stratifies held-out patients into small/medium/large tercile bins per lesion volume (computed at native resolution, not the resampled grid) and reports Dice/IoU against ground truth, alongside a chance-level random-heatmap control to rule out Dice's inherent size bias. Follow-up experiments are evaluated against this same protocol using paired Wilcoxon tests with Benjamini-Hochberg correction across the full family of comparisons.
+PubMedBERT text embeddings (mean-pooled region descriptions) are aligned with 3D ResNet-10 patch embeddings (MONAI) in a shared contrastive space, trained on 32³ patches sampled from BraTS2020 volumes (128³, z-score normalized) against four classes: enhancing tumor, tumor core, whole tumor, and normal tissue. Since the trained model globally pools each patch to a single embedding, Grad-CAM isn't viable, so localization is done via a sliding-window similarity map, sweeping the trained encoder across the full volume and thresholding to get a predicted mask. Evaluation stratifies held-out patients into small/medium/large tercile bins per lesion volume (computed at native resolution, not the resampled grid) and reports Dice/IoU against ground truth.
+
+Four measurement controls sit underneath every claim: a **chance-level random-heatmap baseline**, a **P′ supervised reference** (a conventional U-Net on the identical data, split and metric, checked against published BraTS Dice), **five binarization rules** rather than one so threshold effects can be separated from grounding, and a **threshold-free pointing game**. Every comparison is a paired Wilcoxon test with Benjamini-Hochberg correction across the full accumulated family of 171 tests, and every retrained arm is replicated across three independent seeds — because the unit of replication is the training run, not the patient.
 
 ## Findings
 
@@ -26,7 +28,7 @@ Full writeup: [`report_draft.pdf`](report_draft.pdf) / [`report_draft.md`](repor
 
 ## Repository layout
 
-- `src/` — all code (53 files, 6,866 lines). See [`src/README.md`](src/README.md) for a file-by-file breakdown with line counts.
+- `src/` — all code (54 files, 7,131 lines). See [`src/README.md`](src/README.md) for a file-by-file breakdown with line counts.
 - `slurm/` — SLURM batch scripts for every training and evaluation job. See [`slurm/README.md`](slurm/README.md).
 - `results/` — per-patient CSV outputs from every evaluation run. See [`results/README.md`](results/README.md) for the schema.
 - `figures/` — generated report figures. See [`figures/README.md`](figures/README.md).
@@ -35,7 +37,7 @@ Full writeup: [`report_draft.pdf`](report_draft.pdf) / [`report_draft.md`](repor
 Not included in this repo (see below for how to regenerate):
 - `data/` — BraTS2020 raw + preprocessed volumes (~12GB).
 - `checkpoints/` — trained model weights (~400MB).
-- `logs/` — raw SLURM job stdout.
+- `logs/` — raw SLURM job stdout (the curated `logs/*_analysis.txt` summaries the report cites *are* tracked).
 
 ## Reproducing this project
 

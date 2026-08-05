@@ -63,6 +63,7 @@ def style_axes(ax, ylabel=None, xlabel=None):
 def paired_mean(rows_a, rows_b, key_filter=None):
     """Mean Dice of two arms over the (patient, region) keys they share."""
     def idx(rows):
+        """Index one arm's rows by (patient_id, region), applying the caller's row filter."""
         return {(r["patient_id"], r["region"]): float(r["dice"]) for r in rows
                 if key_filter is None or key_filter(r)}
     a, b = idx(rows_a), idx(rows_b)
@@ -118,9 +119,11 @@ def fig_rq7_encoder():
                 ("randvec_aniso", "random vectors,\nPubMedBERT geometry")]
 
     def base_file(s):
+        """Filename of the PubMedBERT baseline scores for a seed (seed 0 is unsuffixed)."""
         return "rq1_localization_scores.csv" if s == 0 else f"rq1_localization_scores_seed{s}.csv"
 
     def var_file(k, s):
+        """Filename of a text-encoder variant's scores for a seed (seed 0 is unsuffixed)."""
         return (f"rq7_{k}_localization_scores.csv" if s == 0
                 else f"rq7_{k}_seed{s}_localization_scores.csv")
 
