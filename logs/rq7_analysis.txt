@@ -1,0 +1,86 @@
+============================================================================================================
+RQ7: does the text encoder contribute to LOCALIZATION?
+Baseline = PubMedBERT (results/rq1_localization_scores.csv). Same split, same protocol.
+============================================================================================================
+
+[1] POOLED OVER ALL REGIONS AND SIZE BINS
+text condition                           n  PubMedBERT   variant    delta               95% CI  effect         p
+BERT-base (general domain)             213      0.0972    0.1123  +0.0151    [+0.0115,+0.0192]  +0.629  3.64e-15
+random-init BERT (frozen)              213      0.0972    0.1351  +0.0379    [+0.0326,+0.0432]  +0.977  6.14e-35
+4 random orthonormal vectors           213      0.0972    0.0833  -0.0140    [-0.0170,-0.0110]  -0.795  3.43e-23
+random vectors, PubMedBERT geometry    213      0.0972    0.0901  -0.0072    [-0.0110,-0.0033]  -0.309  1.10e-04
+
+[2] EQUIVALENCE TEST (margin = +-0.01 Dice)
+    'equivalent' means the entire 95% CI on the paired difference lies inside the margin,
+    i.e. we can rule out a meaningful difference -- not merely fail to detect one.
+    BERT-base (general domain)             CI [+0.0115,+0.0192] -> BETTER than PubMedBERT
+    random-init BERT (frozen)              CI [+0.0326,+0.0432] -> BETTER than PubMedBERT
+    4 random orthonormal vectors           CI [-0.0170,-0.0110] -> WORSE than PubMedBERT
+    random vectors, PubMedBERT geometry    CI [-0.0110,-0.0033] -> WORSE than PubMedBERT
+
+[3] PER REGION x SIZE BIN
+text condition                  reg  bin        n  PubMedBERT   variant    delta  effect     p_raw     q_BH
+BERT-base (general domain)      ET   small     21      0.0100    0.0114  +0.0014  +0.684  8.90e-03   0.0129
+BERT-base (general domain)      ET   medium    23      0.0374    0.0400  +0.0025  +0.403  1.06e-01   0.1273
+BERT-base (general domain)      ET   large     23      0.1488    0.1579  +0.0090  +0.268  2.73e-01   0.3165
+BERT-base (general domain)      TC   small     27      0.0192    0.0217  +0.0025  +0.481  2.80e-02   0.0360
+BERT-base (general domain)      TC   medium    23      0.0590    0.0621  +0.0032  +0.188  4.45e-01   0.4857
+BERT-base (general domain)      TC   large     23      0.1756    0.1928  +0.0173  +0.688  2.73e-03   0.0043
+BERT-base (general domain)      WT   small     32      0.0568    0.0703  +0.0135  +0.837  5.97e-06   0.0000
+BERT-base (general domain)      WT   medium    21      0.1367    0.1744  +0.0377  +0.943  2.19e-04   0.0004
+BERT-base (general domain)      WT   large     20      0.2809    0.3385  +0.0576  +0.971  9.54e-06   0.0000
+random-init BERT (frozen)       ET   small     21      0.0100    0.0157  +0.0057  +0.723  2.48e-03   0.0041
+random-init BERT (frozen)       ET   medium    23      0.0374    0.0846  +0.0471  +0.978  1.19e-06   0.0000
+random-init BERT (frozen)       ET   large     23      0.1488    0.2254  +0.0766  +1.000  2.38e-07   0.0000
+random-init BERT (frozen)       TC   small     27      0.0192    0.0333  +0.0142  +1.000  1.49e-08   0.0000
+random-init BERT (frozen)       TC   medium    23      0.0590    0.0947  +0.0357  +0.978  1.19e-06   0.0000
+random-init BERT (frozen)       TC   large     23      0.1756    0.2434  +0.0678  +1.000  2.38e-07   0.0000
+random-init BERT (frozen)       WT   small     32      0.0568    0.0673  +0.0105  +1.000  1.17e-06   0.0000
+random-init BERT (frozen)       WT   medium    21      0.1367    0.1735  +0.0368  +1.000  9.54e-07   0.0000
+random-init BERT (frozen)       WT   large     20      0.2809    0.3421  +0.0612  +1.000  1.91e-06   0.0000
+4 random orthonormal vectors    ET   small     21      0.0100    0.0082  -0.0018  -0.667  8.97e-03   0.0129
+4 random orthonormal vectors    ET   medium    23      0.0374    0.0287  -0.0088  -0.862  7.32e-05   0.0001
+4 random orthonormal vectors    ET   large     23      0.1488    0.1243  -0.0245  -0.928  1.03e-05   0.0000
+4 random orthonormal vectors    TC   small     27      0.0192    0.0172  -0.0020  -0.507  2.99e-02   0.0371
+4 random orthonormal vectors    TC   medium    23      0.0590    0.0504  -0.0085  -0.906  2.10e-05   0.0000
+4 random orthonormal vectors    TC   large     23      0.1756    0.1727  -0.0029  -0.178  4.65e-01   0.4925
+4 random orthonormal vectors    WT   small     32      0.0568    0.0475  -0.0093  -0.948  4.12e-06   0.0000
+4 random orthonormal vectors    WT   medium    21      0.1367    0.1099  -0.0268  -0.991  1.91e-06   0.0000
+4 random orthonormal vectors    WT   large     20      0.2809    0.2311  -0.0497  -0.905  8.20e-05   0.0002
+random vectors, PubMedBERT geometryET   small     21      0.0100    0.0080  -0.0019  -0.619  1.52e-02   0.0211
+random vectors, PubMedBERT geometryET   medium    23      0.0374    0.0363  -0.0012  -0.091  7.09e-01   0.7089
+random vectors, PubMedBERT geometryET   large     23      0.1488    0.1464  -0.0025  -0.221  3.75e-01   0.4224
+random vectors, PubMedBERT geometryTC   small     27      0.0192    0.0202  +0.0011  +0.111  6.20e-01   0.6381
+random vectors, PubMedBERT geometryTC   medium    23      0.0590    0.0628  +0.0039  +0.536  2.33e-02   0.0311
+random vectors, PubMedBERT geometryTC   large     23      0.1756    0.1955  +0.0199  +0.768  6.39e-04   0.0011
+random vectors, PubMedBERT geometryWT   small     32      0.0568    0.0482  -0.0086  -0.875  1.50e-06   0.0000
+random vectors, PubMedBERT geometryWT   medium    21      0.1367    0.1118  -0.0249  -0.896  6.68e-05   0.0001
+random vectors, PubMedBERT geometryWT   large     20      0.2809    0.2220  -0.0589  -1.000  1.91e-06   0.0000
+
+    29/36 region x bin comparisons differ from PubMedBERT after BH correction.
+
+[4] DECOMPOSITION: semantics vs. geometry
+    SEMANTICS  (PubMedBERT vs random vectors at PubMedBERT's own geometry):
+      delta = -0.0072 Dice, CI [-0.0110,-0.0033], p=1.10e-04
+      Geometry is held fixed, so this isolates the contribution of meaning alone.
+    GEOMETRY   (orthonormal vs PubMedBERT-anisotropic, both semantically empty):
+      delta = -0.0068 Dice, CI [-0.0098,-0.0038], p=1.49e-07
+      Semantic content is held fixed at zero, so this isolates embedding geometry alone.
+
+[5] SIZE COLLAPSE UNDER EACH TEXT CONDITION (does the core RQ1 finding depend on the encoder?)
+text condition                        region     small   medium    large     L/S
+PubMedBERT (baseline)                 ET        0.0100   0.0374   0.1488   15.0x
+PubMedBERT (baseline)                 TC        0.0192   0.0590   0.1756    9.2x
+PubMedBERT (baseline)                 WT        0.0568   0.1367   0.2809    4.9x
+BERT-base (general domain)            ET        0.0114   0.0400   0.1579   13.9x
+BERT-base (general domain)            TC        0.0217   0.0621   0.1928    8.9x
+BERT-base (general domain)            WT        0.0703   0.1744   0.3385    4.8x
+random-init BERT (frozen)             ET        0.0157   0.0846   0.2254   14.4x
+random-init BERT (frozen)             TC        0.0333   0.0947   0.2434    7.3x
+random-init BERT (frozen)             WT        0.0673   0.1735   0.3421    5.1x
+4 random orthonormal vectors          ET        0.0082   0.0287   0.1243   15.2x
+4 random orthonormal vectors          TC        0.0172   0.0504   0.1727   10.0x
+4 random orthonormal vectors          WT        0.0475   0.1099   0.2311    4.9x
+random vectors, PubMedBERT geometry   ET        0.0080   0.0363   0.1464   18.2x
+random vectors, PubMedBERT geometry   TC        0.0202   0.0628   0.1955    9.7x
+random vectors, PubMedBERT geometry   WT        0.0482   0.1118   0.2220    4.6x

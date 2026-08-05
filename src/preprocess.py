@@ -15,6 +15,20 @@ DEFAULT_OUT_DIR = "/net/projects/ranalab/rajhansini/nlp_project/data/preprocesse
 
 
 def load_patient(patient_dir, patient_id):
+    """Load one patient's four MRI modalities and segmentation from disk.
+
+    Handles the known BraTS2020 quirk where patient 355's segmentation ships under a non-standard
+    filename (W39_1998.09.19_Segm.nii), a leftover from the original hospital anonymization that was
+    never corrected in this release.
+
+    Args:
+        patient_dir: directory containing that patient's NIfTI files.
+        patient_id: e.g. "BraTS20_Training_001".
+
+    Returns:
+        (modalities, seg, voxel_volume_mm3) where modalities is a (4, D, H, W) array in T1/T1ce/T2/
+        FLAIR order and voxel_volume_mm3 comes from the NIfTI header's spacing.
+    """
     volumes = {}
     for mod in MODALITIES:
         path = os.path.join(patient_dir, f"{patient_id}_{mod}.nii")
@@ -34,6 +48,18 @@ def load_patient(patient_dir, patient_id):
 
 
 def zscore_normalize(volume, brain_mask):
+    """Z-score normalize a volume using only voxels inside the brain mask.
+
+    Normalizing over the whole array would be wrong for skull-stripped data: the large zero background
+    would dominate the mean and standard deviation and compress the actual tissue intensities.
+
+    Args:
+        volume: single-modality 3D array.
+        brain_mask: boolean mask of non-background voxels.
+
+    Returns:
+        Normalized array of the same shape, with background left at zero.
+    """
     brain_voxels = volume[brain_mask]
     mean, std = brain_voxels.mean(), brain_voxels.std()
     normalized = np.zeros_like(volume)
@@ -42,11 +68,35 @@ def zscore_normalize(volume, brain_mask):
 
 
 def resize_volume(volume, target_shape, order):
+    """Resample a volume to the target grid.
+
+    Args:
+        volume: 3D array to resample.
+        target_shape: desired output shape.
+        order: spline interpolation order; 0 (nearest) for label masks so no new labels are invented,
+            higher for continuous intensity data.
+
+    Returns:
+        Resampled array of shape target_shape.
+    """
     factors = [t / s for t, s in zip(target_shape, volume.shape)]
     return zoom(volume, factors, order=order)
 
 
 def compute_subregion_volumes(seg, voxel_volume_mm3):
+    """Compute true ET/TC/WT volumes in mm^3 from the native-resolution segmentation.
+
+    Deliberately measured before resampling: the size bins that stratify every result in this project
+    are derived from these numbers, so computing them on the 128^3 grid would fold resampling error
+    into the independent variable.
+
+    Args:
+        seg: native-resolution integer label volume.
+        voxel_volume_mm3: physical volume of one native voxel.
+
+    Returns:
+        dict mapping "ET"/"TC"/"WT" -> volume in mm^3.
+    """
     et = int(np.sum(seg == 4))
     tc = int(np.sum((seg == 1) | (seg == 4)))
     wt = int(np.sum((seg == 1) | (seg == 2) | (seg == 4)))
@@ -59,6 +109,16 @@ def compute_subregion_volumes(seg, voxel_volume_mm3):
 
 
 def process_patient(patient_dir, patient_id, target_size):
+    """Preprocess one patient end to end and return its volumes for the summary table.
+
+    Args:
+        patient_dir: directory containing that patient's NIfTI files.
+        patient_id: e.g. "BraTS20_Training_001".
+        target_size: edge length of the isotropic output grid.
+
+    Returns:
+        dict of the patient's true per-region lesion volumes, for the summary CSV.
+    """
     volumes, seg, spacing = load_patient(patient_dir, patient_id)
     voxel_volume_mm3 = float(spacing[0] * spacing[1] * spacing[2])
 
@@ -79,6 +139,12 @@ def process_patient(patient_dir, patient_id, target_size):
 
 
 def main():
+    """Preprocess every patient, writing results incrementally.
+
+    Results are written per patient rather than once at the end: an earlier version accumulated
+    everything in memory and wrote the summary CSV last, so the crash on patient 355's irregular
+    filename would have silently discarded all preceding work.
+    """
     parser = argparse.ArgumentParser(description="Preprocess BraTS2020 volumes.")
     parser.add_argument("--data_root", default=DEFAULT_DATA_ROOT)
     parser.add_argument("--out_dir", default=DEFAULT_OUT_DIR)

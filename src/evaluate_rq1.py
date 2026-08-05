@@ -27,6 +27,23 @@ SIZE_CUTOFFS = {
 
 
 def otsu_threshold(values):
+    """Otsu's method: pick the intensity cut point that maximises between-class variance.
+
+    Otsu (1979) treats binarization as splitting a histogram into two classes and searches every
+    candidate cut for the one maximising the variance *between* those classes, equivalently minimising
+    the variance within them. It is unsupervised and per-volume, which is why it was chosen here: the
+    threshold never sees ground truth, so it cannot leak test-time information into the Dice score.
+
+    RQ11 later quantified the price of that choice -- Otsu over-predicts lesion volume by 6-223x and is
+    anti-correlated with true lesion size -- so results binarized this way are lower bounds set jointly
+    by the model and this rule.
+
+    Args:
+        values: flattened heatmap values.
+
+    Returns:
+        float threshold; voxels strictly above it are predicted positive.
+    """
     hist, bin_edges = np.histogram(values, bins=256)
     hist = hist.astype(float)
     bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
@@ -40,6 +57,19 @@ def otsu_threshold(values):
 
 
 def dice_iou(pred_mask, gt_mask):
+    """Dice coefficient and IoU between a predicted and a ground-truth boolean mask.
+
+    Dice is 2|A n B| / (|A| + |B|); IoU is |A n B| / |A u B|. Both are computed here rather than taken
+    from a library so that every arm of every experiment -- including the P' supervised reference --
+    is scored by literally the same function.
+
+    Args:
+        pred_mask: predicted boolean mask.
+        gt_mask: ground-truth boolean mask of the same shape.
+
+    Returns:
+        (dice, iou) as floats.
+    """
     inter = np.logical_and(pred_mask, gt_mask).sum()
     dice = 2 * inter / (pred_mask.sum() + gt_mask.sum() + 1e-8)
     iou = inter / (np.logical_or(pred_mask, gt_mask).sum() + 1e-8)
@@ -47,6 +77,17 @@ def dice_iou(pred_mask, gt_mask):
 
 
 def size_bin(volume_mm3, region):
+    """Assign a lesion to its small/medium/large tercile for one region.
+
+    Cutoffs are per-region and computed from true native-resolution volumes; see dataset_rq2.size_bin.
+
+    Args:
+        volume_mm3: true lesion volume in mm^3 at native resolution.
+        region: one of "ET", "TC", "WT".
+
+    Returns:
+        One of "small", "medium", "large".
+    """
     lo, hi = SIZE_CUTOFFS[region]
     if volume_mm3 <= lo:
         return "small"
@@ -56,11 +97,20 @@ def size_bin(volume_mm3, region):
 
 
 def load_true_volumes():
+    """Load lesion_volumes.csv keyed by patient ID.
+
+    Volumes are true native-resolution mm^3, not measured on the resampled 128^3 grid, so size
+    binning does not inherit resampling error.
+
+    Returns:
+        dict mapping patient_id -> the CSV row for that patient.
+    """
     with open(LESION_CSV, newline="") as f:
         return {row["patient_id"]: row for row in csv.DictReader(f)}
 
 
 def main():
+    """Score the frozen baseline's sliding-window localization, stratified by lesion size."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", type=int, default=0, help="must match the seed used for train_baseline.py's split")
     args = parser.parse_args()

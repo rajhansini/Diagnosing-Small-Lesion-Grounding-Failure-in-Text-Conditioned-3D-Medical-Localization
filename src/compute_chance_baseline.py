@@ -15,6 +15,11 @@ RESULTS_DIR = "/net/projects/ranalab/rajhansini/nlp_project/results"
 
 
 def main():
+    """Score random heatmaps through the identical Otsu+Dice pipeline as a chance-level control.
+
+    Separates genuine model failure from Dice's known geometric bias against small structures: without
+    this, "small lesions score worse" is a property of the metric, not evidence about the model.
+    """
     rng = np.random.default_rng(0)
 
     with open(os.path.join(RESULTS_DIR, "rq1_localization_scores.csv"), newline="") as f:

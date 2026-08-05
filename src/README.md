@@ -1,66 +1,106 @@
-# src/ — file guide
+# `src/` — file guide
 
-All files below were written by me for this project. None contain code copied from another project or assignment.
+**Attribution.** Every file below was written by me for this project. None contains code copied from another project, another assignment, or a third-party codebase. Third-party libraries (PyTorch, MONAI, Hugging Face Transformers, scikit-image, SciPy, matplotlib) and the pretrained PubMedBERT weights are used through their public APIs and package installs; nothing is vendored into this repository.
+
+**Totals: 53 files, 6,866 lines.** Line counts below are `wc -l` including docstrings and comments.
+
+Run order for a full reproduction is documented in the [root README](../README.md).
+
+---
 
 ## Data pipeline
 
 | File | LOC | Purpose |
 |---|---|---|
-| `preprocess.py` | 124 | Loads raw BraTS2020 NIfTI volumes, z-score normalizes per modality, resizes to 128³, computes per-patient/per-region lesion volumes (native resolution) for size-bin stratification. Handles the `BraTS20_Training_355` misnamed-segmentation-file quirk. |
-| `text_encoder.py` | 182 | PubMedBERT wrapper. Defines and embeds three text variants: base region descriptions (ET/TC/WT/NONE), size-conditioned descriptions (RQ2/RQ4), and naturalistic radiology-style descriptions (RQ5). |
+| `preprocess.py` | 190 | Loads raw BraTS2020 NIfTI volumes, z-score normalizes per modality *within the brain mask*, resizes to 128³, and computes per-patient/per-region lesion volumes at **native** resolution for size-bin stratification. Handles the `BraTS20_Training_355` misnamed-segmentation quirk and writes results incrementally so a mid-run crash cannot discard completed work. |
+| `text_encoder.py` | 204 | PubMedBERT wrapper and the single source of all text used in the project. Defines and embeds the base region descriptions (ET/TC/WT/NONE), the size-conditioned variants (RQ2/RQ4), and the naturalistic radiology-style variants (RQ5). |
+| `build_rq7_text_variants.py` | 166 | Builds the four RQ7 text-encoder ablation conditions: BERT-base, random-init BERT, random orthonormal vectors, and random vectors resampled to PubMedBERT's anisotropic geometry. |
+| `build_rq8_probe_texts.py` | 181 | Builds the five RQ8 compositionality probes (original / negated / shuffled / swapped / generic) and asserts the `original` embedding matches the training embedding to floating-point tolerance. |
 
 ## Datasets and model
 
 | File | LOC | Purpose |
 |---|---|---|
-| `dataset.py` | 57 | Patch dataset for the P′ baseline / RQ1 / RQ5: samples one labeled 32³ patch per (patient, region) pair. |
-| `dataset_rq2.py` | 70 | Size-conditioned patch dataset: labels each patch with its region's true size bin for the 10-way classification task. |
-| `dataset_rq4.py` | 64 | Scale-matched patch dataset: crop size tied to the true size bin (16³/32³/64³), resized to the model's canonical 32³ input. |
-| `model.py` | 17 | `TextVolumeAligner`: MONAI 3D ResNet-10 volume encoder + linear text projection, contrastive alignment. |
-| `localize.py` | 45 | Sliding-window similarity map. Supports querying at a different physical window size than the model's input size (resized via trilinear interpolation), used for the RQ3/RQ3b/RQ4 multi-scale experiments. |
+| `dataset.py` | 102 | Patch dataset for the baseline / RQ1 / RQ5 / RQ7: one labeled 32³ patch per (patient, region). Defines `region_mask()`, the single definition of ET/TC/WT used everywhere in the project. |
+| `dataset_rq2.py` | 110 | Size-conditioned dataset: labels each patch with its region's true size bin for the 10-way task. Physical crop size is held fixed, so only the *text* varies. |
+| `dataset_rq4.py` | 90 | Scale-matched dataset: crop size tied to the true size bin (16³/32³/64³), resized to the canonical 32³ input. Changes the geometry as well as the text. |
+| `dataset_pprime.py` | 105 | Full-volume dense-label dataset for the P′ supervised reference, with tumor-biased random cropping. |
+| `model.py` | 51 | `TextVolumeAligner`: MONAI 3D ResNet-10 volume encoder + linear text projection into a shared 256-d L2-normalized space. |
+| `localize.py` | 72 | `sliding_window_heatmap()`: sweeps the encoder across a volume accumulating per-voxel cosine similarity to a text query. Supports querying at a different physical window size than the model was trained at, which is what makes the entire window sweep possible without retraining. |
 
 ## Training
 
 | File | LOC | Purpose |
 |---|---|---|
-| `train_baseline.py` | 91 | P′ baseline / RQ1: 4-way (ET/TC/WT/NONE) contrastive classification. Takes a `--seed` argument controlling the train/val split, used for the cross-validation check across seeds 0/1/2. |
-| `train_rq2.py` | 94 | RQ2: 10-way size-conditioned contrastive classification, fixed 32³ patches. |
-| `train_rq4.py` | 94 | RQ4: 10-way size-conditioned classification with scale-matched patch sampling. |
-| `train_rq5.py` | 94 | RQ5: same as baseline, trained against naturalistic-text embeddings instead of templated. |
-| `train_rq6.py` | 110 | RQ6: same scale-matched setup as RQ4, plus a uniformity regularizer (`uniformity_loss`) penalizing high pairwise cosine similarity among the projected text class embeddings, to break up the "large"-class embedding hub RQ4 diagnosed. |
+| `train_baseline.py` | 118 | Contrastive alignment baseline (RQ1). 4-way ET/TC/WT/NONE classification. `--seed` controls the train/val split for cross-seed replication. |
+| `train_rq2.py` | 128 | RQ2: 10-way size-conditioned classification at a fixed patch size. |
+| `train_rq4.py` | 128 | RQ4: 10-way size-conditioned classification with scale-matched patch sampling. |
+| `train_rq5.py` | 128 | RQ5: baseline trained against naturalistic rather than templated text. |
+| `train_rq6.py` | 146 | RQ6: RQ4's setup plus a uniformity regularizer penalizing high pairwise cosine similarity among projected class embeddings, to break the "large"-class hub RQ4 diagnosed. |
+| `train_rq7.py` | 152 | RQ7: baseline trained against one substituted text-encoder condition. |
+| `train_pprime_supervised.py` | 195 | **P′ reference point.** Conventional supervised 3D U-Net segmentation on the identical split, data and metric — the previously-studied problem used to validate that the shared pipeline is sound. |
 
 ## Evaluation
 
 | File | LOC | Purpose |
 |---|---|---|
-| `evaluate_rq1.py` | 135 | Core size-stratified Dice/IoU evaluation. Defines `otsu_threshold`, `dice_iou`, `size_bin` used throughout the rest of the project. Takes a `--seed` argument matching `train_baseline.py`'s, for evaluating the seed 0/1/2 cross-validation checkpoints. |
-| `evaluate_rq2.py` | 101 | Evaluates RQ2 with the size-phrasing ensemble (max over small/medium/large text queries). |
-| `evaluate_rq3_multiscale.py` | 104 | RQ3: multi-scale window ensemble (16³/32³/64³, max combination) on the frozen RQ1 model. |
-| `evaluate_rq3b_scale16_only.py` | 73 | RQ3b: isolates the 16³ window alone (no ensembling) to separate the receptive-field effect from the ensembling effect. |
-| `evaluate_window_sweep.py` | 85 | RQ3c: generalizes RQ3b to any single (window_size, stride) pair via CLI args. Used for the 12³, 8³, and 6³ points extending the window-size curve. |
-| `evaluate_rq4.py` | 106 | Evaluates RQ4 with scale-matched window querying per size-phrasing. |
-| `evaluate_rq5.py` | 92 | Size-stratified evaluation for the naturalistic-text model. |
-| `evaluate_rq6.py` | 104 | Evaluates RQ6 with the same scale-matched ensemble protocol as RQ4, for a direct paired comparison. |
-| `evaluate_rq6_single_scale.py` | 104 | Oracle test (uses the true size bin to pick a single matched scale, no ensembling) isolating whether RQ6's benefit comes from the embedding fix or from cross-scale ensembling. |
-| `compute_chance_baseline.py` | 55 | Random-noise-heatmap control run through the identical Otsu+Dice pipeline, on the same patients/regions as RQ1. |
-| `sanity_check_localize.py` | 71 | Verifies the sliding-window heatmap scores higher inside the true region than outside, before trusting it for evaluation. |
-| `test_rq4_shortcut_hypothesis.py` | 96 | Feeds pure random noise through RQ4's three resize pipelines and checks whether the model still assigns systematically different scores, i.e. whether it learned resize artifacts rather than content. |
-| `test_rq6_hub_bias.py` | 65 | Re-runs the RQ4 noise probe on the RQ6 checkpoint to verify the uniformity regularizer actually broke up the embedding hub, rather than just improving accuracy. |
+| `evaluate_rq1.py` | 185 | Core size-stratified Dice/IoU evaluation. Defines `otsu_threshold()`, `dice_iou()` and `size_bin()`, which **every** other evaluation script imports rather than redefining, so all arms share one metric implementation. |
+| `evaluate_rq2.py` | 121 | RQ2 with the size-phrasing ensemble (max over small/medium/large queries). |
+| `evaluate_rq3_multiscale.py` | 113 | RQ3: multi-scale window ensemble (16³/32³/64³, voxel-wise max) on the frozen baseline. |
+| `evaluate_rq3b_scale16_only.py` | 73 | RQ3b: the 16³ window alone, isolating the receptive-field effect from the ensembling effect. |
+| `evaluate_window_sweep.py` | 86 | RQ3c: any single (window, stride) pair via CLI. Produced the 12³, 8³ and 6³ points. |
+| `evaluate_rq4.py` | 126 | RQ4 with scale-matched window querying per size phrasing. |
+| `evaluate_rq5.py` | 112 | Size-stratified evaluation of the naturalistic-text model. |
+| `evaluate_rq6.py` | 124 | RQ6 under RQ4's protocol, for a direct paired comparison. |
+| `evaluate_rq6_single_scale.py` | 113 | Oracle test isolating whether RQ6's benefit comes from the embedding fix or from cross-scale ensembling. |
+| `evaluate_rq7.py` | 119 | One text-encoder ablation under the identical RQ1 protocol. |
+| `evaluate_rq8_compositionality.py` | 193 | RQ8 probes. Carries a built-in correctness gate: its `original` condition must reproduce `rq1_localization_scores.csv` exactly. |
+| `evaluate_rq11_threshold_confound.py` | 234 | RQ11: recomputes each heatmap once and scores it under five binarization rules plus the pointing game, decomposing the collapse into grounding and thresholding. |
+| `evaluate_grounding_sweep.py` | 195 | RQ12: generalizes RQ11 to any window size, with a **tie-aware** pointing metric. At window 32 it must reproduce RQ11's CSV — an end-to-end correctness gate. |
+| `evaluate_pprime_supervised.py` | 118 | Scores the P′ segmenter against published BraTS Dice ranges and by the project's own size terciles. |
 
-## Analysis and figures
+## Diagnostics and controls
 
 | File | LOC | Purpose |
 |---|---|---|
-| `analyze_results.py` | 62 | Early-stage stats: Spearman correlation and lift-over-chance for RQ1. |
-| `analyze_all_comparisons.py` | 90 | Consolidated statistics: recomputes every paired Wilcoxon test (RQ1 vs. RQ2/RQ3/RQ3b/RQ4/RQ5) from the saved CSVs and applies Benjamini-Hochberg FDR correction across the full family. |
-| `make_figures.py` | 97 | Figure 1 (Dice vs. volume scatter with chance overlay) and Figure 2 (RQ1 vs. RQ2 bar chart). |
-| `make_overlay_figure.py` | 58 | Figure 3: qualitative heatmap overlay on example large/small lesion slices. |
-| `make_figure4_scale_comparison.py` | 62 | Figure: RQ1 vs. RQ3b vs. RQ4 grouped bar chart. |
-| `make_figure5_window_curve.py` | 57 | Figure: mean Dice vs. window size (32³/16³/12³/8³/6³), one line per region, for the RQ3c curve, showing the plateau at 6³ for ET/TC. |
-| `generate_example_heatmaps.py` | 50 | Recomputes and saves the two example heatmaps used by `make_overlay_figure.py`. |
-| `make_figure_architecture.py` | 79 | Pipeline schematic (Method section): contrastive alignment at training time and sliding-window heatmap extraction at inference time. |
-| `make_figure_leaderboard.py` | 61 | Leaderboard bar chart: mean Dice for every method (RQ1/RQ2/RQ3c/RQ4/RQ6), one panel per region, bars grouped by size bin. |
-| `make_figure_roadmap.py` | 73 | Decision-tree diagram of every ablation attempted (RQ1 through RQ6), color-coded by whether the outcome helped, hurt, or partially fixed the prior problem. |
-| `make_figure_significance_heatmap.py` | 96 | Heatmap of every paired significance test run in the project (RQ1 baseline vs. each ablation, by region×size-bin), recomputing Wilcoxon tests and BH-FDR correction directly from the saved CSVs. |
+| `compute_chance_baseline.py` | 60 | Random-heatmap control through the identical Otsu+Dice pipeline, separating model failure from Dice's geometric bias against small structures. |
+| `sanity_check_localize.py` | 72 | Pre-flight check that the heatmap scores higher inside the true region than outside, before the localizer is trusted for evaluation. |
+| `test_rq4_shortcut_hypothesis.py` | 102 | Feeds pure noise through RQ4's three resize pipelines to test directly whether the model learned resize artifacts rather than tumor content. |
+| `test_rq6_hub_bias.py` | 75 | Re-runs that noise probe on the RQ6 checkpoint to verify the uniformity regularizer actually broke the embedding hub. |
 
-**Total: 3,018 lines across 34 files.**
+## Analysis
+
+| File | LOC | Purpose |
+|---|---|---|
+| `analyze_full_family.py` | 267 | The project's central statistics script: recomputes all 171 paired Wilcoxon tests from the saved CSVs and applies Benjamini-Hochberg correction, under both a pooled family and a per-research-question family. |
+| `analyze_seed_replication.py` | 209 | Tests whether the RQ2/RQ4/RQ5/RQ6 conclusions hold across three independent training runs, judging by sign consistency against a retraining noise floor rather than within-run p-values. |
+| `analyze_rq7.py` | 251 | RQ7 single-seed analysis, including an equivalence test and the semantics-vs-geometry decomposition. |
+| `analyze_rq7_multiseed.py` | 180 | RQ7 across three seeds. Exposes the pseudo-replication in the single-seed p-values. |
+| `analyze_rq8.py` | 184 | RQ8: how far each manipulation moves the query versus how far it moves behaviour. |
+| `analyze_rq11.py` | 147 | RQ11: threshold calibration, the cost of the Otsu step, and the pointing game vs. chance. |
+| `analyze_rq12.py` | 215 | RQ12: the tie artifact, the pointing comparison across window sizes, and whether the smaller window's Dice win survives a better binarizer. |
+| `analyze_all_comparisons.py` | 109 | Earlier consolidated statistics script, superseded by `analyze_full_family.py` but retained because Sections 7.1–7.6 were first computed with it. |
+| `analyze_results.py` | 71 | Early-stage stats: Spearman correlation and lift over chance for RQ1. |
+
+## Figures
+
+| File | LOC | Purpose |
+|---|---|---|
+| `make_figures.py` | 107 | Figure 1 (Dice vs. volume scatter with chance overlay) and Figure 2 (RQ1 vs. RQ2 bars). |
+| `make_overlay_figure.py` | 67 | Qualitative heatmap overlays on example large/small lesion slices. |
+| `generate_example_heatmaps.py` | 51 | Recomputes and caches the two heatmaps the overlay figure uses. |
+| `make_figure4_scale_comparison.py` | 71 | RQ1 vs. RQ3b vs. RQ4 grouped bars. |
+| `make_figure5_window_curve.py` | 68 | Mean Dice vs. window size (32³→6³), one line per region. |
+| `make_figure_architecture.py` | 106 | Pipeline schematic for the Method section. |
+| `make_figure_leaderboard.py` | 70 | Leaderboard bars: every method's mean Dice, one panel per region. |
+| `make_figure_roadmap.py` | 101 | Decision-tree diagram of every ablation, colour-coded by outcome. |
+| `make_figure_significance_heatmap.py` | 105 | Every paired significance test as one heatmap, recomputing the tests from the CSVs. |
+
+---
+
+## Conventions worth knowing
+
+1. **Metrics are imported, never redefined.** `otsu_threshold()`, `dice_iou()` and `size_bin()` live in `evaluate_rq1.py` and are imported by every other evaluation script — including the supervised P′ — so cross-experiment comparisons cannot be confounded by differing implementations.
+2. **Splits are reproducible from a seed alone.** Every training and evaluation script derives its train/val split from `sorted(listdir())` plus a seeded shuffle, so passing the same `--seed` anywhere reconstructs the same held-out patients without storing a split file.
+3. **Several scripts carry built-in correctness gates.** `evaluate_rq8_compositionality.py` asserts its control condition reproduces RQ1's CSV; `evaluate_grounding_sweep.py` at window 32 must reproduce RQ11's. Both caught real bugs during development.
+4. **Every number in the report is recomputed from the per-patient CSVs in `results/`** by a script in this directory. No statistic is transcribed by hand.

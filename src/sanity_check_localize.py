@@ -16,6 +16,7 @@ CKPT_PATH = "/net/projects/ranalab/rajhansini/nlp_project/checkpoints/baseline_a
 
 
 def main():
+    """Verify the heatmap scores higher inside the true region than outside before trusting it."""
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print("device:", device)
 

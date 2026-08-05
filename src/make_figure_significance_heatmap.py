@@ -31,11 +31,20 @@ COMPARISONS = [
 
 
 def load(fn):
+    """Read a per-patient score CSV from results/ into a list of dict rows.
+
+    Args:
+        fn: basename of the CSV inside the results directory.
+
+    Returns:
+        List of dicts, one per (patient, region) row.
+    """
     with open(os.path.join(RESULTS_DIR, fn), newline="") as f:
         return list(csv.DictReader(f))
 
 
 def main():
+    """Draw every paired significance test as one heatmap, recomputing the tests from the CSVs."""
     rq1 = load("rq1_localization_scores.csv")
     all_p, all_dir, cell_index = [], [], []
 

@@ -15,11 +15,29 @@ BINS = ["small", "medium", "large"]
 
 
 def load(filename):
+    """Read a per-patient score CSV from results/ into a list of dict rows.
+
+    Args:
+        filename: basename of the CSV inside the results directory.
+
+    Returns:
+        List of dicts, one per (patient, region) row.
+    """
     with open(os.path.join(RESULTS_DIR, filename), newline="") as f:
         return list(csv.DictReader(f))
 
 
 def paired_tests(rq1, other, other_name):
+    """Run paired Wilcoxon tests of one ablation against RQ1 for every region x size bin.
+
+    Args:
+        rq1: RQ1 baseline rows.
+        other: the ablation's rows, over the same held-out patients.
+        other_name: label used in the printed output.
+
+    Returns:
+        List of per-comparison result dicts.
+    """
     lookup = {(r["patient_id"], r["region"]): float(r["dice"]) for r in other}
     results = []
     for region in REGIONS:
@@ -41,6 +59,7 @@ def paired_tests(rq1, other, other_name):
 
 
 def main():
+    """Recompute every RQ1-vs-ablation test and apply Benjamini-Hochberg correction."""
     rq1 = load("rq1_localization_scores.csv")
     rq2 = load("rq2_localization_scores.csv")
     rq3 = load("rq3_localization_scores.csv")

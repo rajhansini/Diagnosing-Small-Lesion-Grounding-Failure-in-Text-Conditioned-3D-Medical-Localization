@@ -2,6 +2,7 @@
 MATCHED physical window size (small->16^3, medium->32^3, large->64^3, all resized to the model's
 32^3 input) -- combines RQ2's size-conditioned text with RQ3's multi-scale windowing into one
 trained system, per Future Work item 3."""
+import argparse
 import csv
 import os
 import random
@@ -26,26 +27,44 @@ STRIDE_BY_CROP = {16: 8, 32: 16, 64: 32}
 
 
 def load_true_volumes():
+    """Load lesion_volumes.csv keyed by patient ID.
+
+    Volumes are true native-resolution mm^3, not measured on the resampled 128^3 grid, so size
+    binning does not inherit resampling error.
+
+    Returns:
+        dict mapping patient_id -> the CSV row for that patient.
+    """
     with open(LESION_CSV, newline="") as f:
         return {row["patient_id"]: row for row in csv.DictReader(f)}
 
 
 def main():
+    """Evaluate the scale-matched model with scale-matched window querying per size phrasing."""
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--seed", type=int, default=0,
+                        help="must match the seed the checkpoint was trained with, and the RQ1 "
+                             "baseline seed this run will be paired against")
+    args = parser.parse_args()
+
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    print("device:", device)
+    print("device:", device, "| seed:", args.seed)
 
     true_volumes = load_true_volumes()
 
     text_embeds_dict = torch.load(TEXT_EMB_PATH, weights_only=True)
     text_embeds = torch.stack([text_embeds_dict[c] for c in SIZE_CLASS_ORDER])
     model = TextVolumeAligner(text_dim=text_embeds.shape[1]).to(device)
-    model.load_state_dict(torch.load(CKPT_PATH, map_location=device, weights_only=True))
+    ckpt_path = CKPT_PATH if args.seed == 0 else os.path.join(
+        os.path.dirname(CKPT_PATH), f"rq4_scale_matched_seed{args.seed}_aligner_best.pt")
+    print("checkpoint:", ckpt_path)
+    model.load_state_dict(torch.load(ckpt_path, map_location=device, weights_only=True))
     model.eval()
     with torch.no_grad():
         text_proj = model.encode_text(text_embeds.to(device))
     class_to_idx = {c: i for i, c in enumerate(SIZE_CLASS_ORDER)}
 
-    random.seed(0)
+    random.seed(args.seed)
     patient_ids = sorted(f[:-4] for f in os.listdir(PREPROCESSED_DIR) if f.endswith(".npz"))
     random.shuffle(patient_ids)
     n_val = max(1, int(0.2 * len(patient_ids)))
@@ -87,7 +106,8 @@ def main():
             })
             print(f"[{region}] ({i + 1}/{len(val_ids)}) {pid}: bin={bin_label} true_vol={true_vol:.0f}mm3 dice={dice:.3f} iou={iou:.3f}")
 
-    csv_path = os.path.join(RESULTS_DIR, "rq4_localization_scores.csv")
+    csv_path = os.path.join(RESULTS_DIR, "rq4_localization_scores.csv" if args.seed == 0
+                            else f"rq4_seed{args.seed}_localization_scores.csv")
     with open(csv_path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=["patient_id", "region", "size_bin", "true_volume_mm3", "dice", "iou"])
         writer.writeheader()

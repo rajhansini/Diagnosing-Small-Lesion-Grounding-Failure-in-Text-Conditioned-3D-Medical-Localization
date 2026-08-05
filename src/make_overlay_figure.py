@@ -16,12 +16,21 @@ EXAMPLES = [
 
 
 def best_slice(seg):
+    """Pick the axial slice containing the most lesion voxels, for a representative overlay.
+
+    Args:
+        seg: boolean or integer mask volume.
+
+    Returns:
+        int index of the slice with maximum lesion area.
+    """
     et = seg == 4
     counts = et.sum(axis=(0, 1))  # count per axial (last-axis) slice
     return int(np.argmax(counts))
 
 
 def main():
+    """Draw the qualitative heatmap overlays for one large and one small example lesion."""
     fig, axes = plt.subplots(1, 2, figsize=(11, 6))
     for ax, (fname, title) in zip(axes, EXAMPLES):
         d = np.load(os.path.join(FIGURES_DIR, fname))

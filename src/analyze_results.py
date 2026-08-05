@@ -11,11 +11,20 @@ RESULTS_DIR = "/net/projects/ranalab/rajhansini/nlp_project/results"
 
 
 def load_scores(filename):
+    """Read a per-patient score CSV from results/ into a list of dict rows.
+
+    Args:
+        filename: basename of the CSV inside the results directory.
+
+    Returns:
+        List of dicts, one per (patient, region) row.
+    """
     with open(os.path.join(RESULTS_DIR, filename), newline="") as f:
         return list(csv.DictReader(f))
 
 
 def main():
+    """Report Spearman correlation of Dice against lesion volume and lift over the chance baseline."""
     rq1 = load_scores("rq1_localization_scores.csv")
     rq2 = load_scores("rq2_localization_scores.csv")
     chance = load_scores("chance_baseline_scores.csv")

@@ -17,10 +17,36 @@ CKPT_DIR = "/net/projects/ranalab/rajhansini/nlp_project/checkpoints"
 
 
 def get_patient_ids():
+    """List preprocessed patient IDs in the fixed order every split starts from.
+
+    Sorting before the seeded shuffle is what makes a given seed reproduce the same train/val split
+    across every script in the project.
+
+    Returns:
+        Sorted list of patient ID strings.
+    """
     return sorted(f[:-4] for f in os.listdir(PREPROCESSED_DIR) if f.endswith(".npz"))
 
 
 def run_epoch(model, loader, text_embeds, optimizer, temperature, device, train):
+    """Run one training or evaluation epoch of contrastive classification.
+
+    Image and text embeddings are projected into the shared space, cosine similarities are scaled by
+    1/temperature to form logits, and cross-entropy is taken against the true class. This is the
+    InfoNCE-style contrastive objective with the text side acting as a fixed set of class prototypes.
+
+    Args:
+        model: TextVolumeAligner being trained or evaluated.
+        loader: DataLoader yielding (patch, label) batches.
+        text_embeds: (n_classes, text_dim) frozen sentence embeddings for every class.
+        optimizer: torch optimizer; unused when train is False.
+        temperature: softmax temperature applied to the cosine-similarity logits.
+        device: torch device string.
+        train: True to backpropagate and step, False for a no-grad evaluation pass.
+
+    Returns:
+        (mean loss, accuracy) over the epoch.
+    """
     model.train(train)
     total_loss, correct, n = 0.0, 0, 0
     for patches, labels in loader:
@@ -41,6 +67,7 @@ def run_epoch(model, loader, text_embeds, optimizer, temperature, device, train)
 
 
 def main():
+    """Train the P' contrastive baseline and save its checkpoint."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--batch_size", type=int, default=16)

@@ -1,0 +1,50 @@
+========================================================================================================
+RQ7 MULTI-SEED: is the text encoder's effect on localization real, or run-to-run noise?
+Unit of replication = the training run. Three independent runs per condition.
+========================================================================================================
+
+[0] NOISE FLOOR: the identical PubMedBERT model, retrained under three seeds
+    pooled Dice per seed: 0.0972, 0.1034, 0.0948
+    mean = 0.0985, std = 0.0044, range = 0.0086
+    Any between-condition effect smaller than this is not interpretable.
+
+[1] PER-SEED PAIRED DELTA vs. PubMedBERT (pooled over all regions and bins)
+text condition                            seed0    seed1    seed2     mean     std  consistent?
+BERT-base (general domain)              +0.0151  -0.0378  +0.0078  -0.0050  0.0286  SIGN FLIPS -> noise
+random-init BERT (frozen)               +0.0379  +0.0283  -0.0014  +0.0216  0.0205  SIGN FLIPS -> noise
+4 random orthonormal vectors            -0.0140  -0.0103  -0.0020  -0.0087  0.0062  all 3 same sign, > noise floor
+random vectors, PubMedBERT geometry     -0.0072  +0.0370  +0.0085  +0.0128  0.0224  SIGN FLIPS -> noise
+
+[2] VERDICT PER CONDITION
+    BERT-base (general domain)             NOT SUPPORTED -- the effect changes sign across training runs
+    random-init BERT (frozen)              NOT SUPPORTED -- the effect changes sign across training runs
+    4 random orthonormal vectors           SUPPORTED -- reliably WORSE than PubMedBERT (mean -0.0087, 2.0x noise floor)
+    random vectors, PubMedBERT geometry    NOT SUPPORTED -- the effect changes sign across training runs
+
+[3] ONE-SAMPLE t-TEST ON THE THREE PER-SEED DELTAS (n=3 runs, not n=213 patients)
+    Underpowered by construction; reported so the weakness of the evidence is visible
+    rather than hidden behind a patient-level p-value.
+text condition                          mean delta       t        p
+BERT-base (general domain)                 -0.0050   -0.30   0.7920
+random-init BERT (frozen)                  +0.0216    1.83   0.2091
+4 random orthonormal vectors               -0.0087   -2.46   0.1330
+random vectors, PubMedBERT geometry        +0.0128    0.99   0.4265
+
+[4] SIZE COLLAPSE ACROSS SEEDS AND TEXT CONDITIONS
+    (large/small Dice ratio; the core RQ1 finding should hold everywhere if it is real)
+text condition                        region     seed0    seed1    seed2
+PubMedBERT (baseline)                 ET         15.0x    14.7x    12.4x
+PubMedBERT (baseline)                 TC          9.2x    10.2x     8.4x
+PubMedBERT (baseline)                 WT          4.9x     5.5x     5.4x
+BERT-base (general domain)            ET         13.9x    14.5x    12.6x
+BERT-base (general domain)            TC          8.9x    10.4x     8.9x
+BERT-base (general domain)            WT          4.8x     4.9x     5.3x
+random-init BERT (frozen)             ET         14.4x   123.9x    12.2x
+random-init BERT (frozen)             TC          7.3x    17.6x     7.9x
+random-init BERT (frozen)             WT          5.1x     5.6x     4.8x
+4 random orthonormal vectors          ET         15.2x    17.3x    13.7x
+4 random orthonormal vectors          TC         10.0x     9.8x     9.4x
+4 random orthonormal vectors          WT          4.9x     5.0x     5.4x
+random vectors, PubMedBERT geometry   ET         18.2x    15.7x    10.6x
+random vectors, PubMedBERT geometry   TC          9.7x    16.1x     7.7x
+random vectors, PubMedBERT geometry   WT          4.6x     5.3x     5.2x

@@ -16,6 +16,21 @@ LIGHT = "#EDEDED"
 
 
 def box(ax, xy, w, h, text, color, fontsize=9, textcolor="black"):
+    """Draw a labelled rounded box on the schematic.
+
+    Args:
+        ax: matplotlib axes to draw on.
+        xy: (x, y) of the box's lower-left corner.
+        w: box width.
+        h: box height.
+        text: label drawn inside the box.
+        color: face colour.
+        fontsize: label size.
+        textcolor: label colour.
+
+    Returns:
+        None; draws directly on ax.
+    """
     b = mpatches.FancyBboxPatch(xy, w, h, boxstyle="round,pad=0.02,rounding_size=0.04",
                                  linewidth=1.4, edgecolor=color, facecolor=LIGHT)
     ax.add_patch(b)
@@ -24,11 +39,23 @@ def box(ax, xy, w, h, text, color, fontsize=9, textcolor="black"):
 
 
 def arrow(ax, xy_from, xy_to, color=GRAY):
+    """Draw a connecting arrow between two points on the schematic.
+
+    Args:
+        ax: matplotlib axes to draw on.
+        xy_from: (x, y) tail position.
+        xy_to: (x, y) head position.
+        color: arrow colour.
+
+    Returns:
+        None; draws directly on ax.
+    """
     ax.annotate("", xy=xy_to, xytext=xy_from,
                 arrowprops=dict(arrowstyle="-|>", color=color, lw=1.6, shrinkA=2, shrinkB=2))
 
 
 def main():
+    """Draw the pipeline schematic: contrastive training and sliding-window inference."""
     fig, ax = plt.subplots(figsize=(10, 7.2))
     ax.set_xlim(0, 10)
     ax.set_ylim(-0.3, 6.5)

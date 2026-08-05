@@ -21,11 +21,20 @@ BINS = ["small", "medium", "large"]
 
 
 def load_scores(filename):
+    """Read a per-patient score CSV from results/ into a list of dict rows.
+
+    Args:
+        filename: basename of the CSV inside the results directory.
+
+    Returns:
+        List of dicts, one per (patient, region) row.
+    """
     with open(os.path.join(RESULTS_DIR, filename), newline="") as f:
         return list(csv.DictReader(f))
 
 
 def fig1_dice_vs_volume():
+    """Draw Figure 1: per-patient Dice against true lesion volume, with the chance baseline overlaid."""
     rq1 = load_scores("rq1_localization_scores.csv")
     chance = load_scores("chance_baseline_scores.csv")
 
@@ -59,6 +68,7 @@ def fig1_dice_vs_volume():
 
 
 def fig2_rq1_vs_rq2_bars():
+    """Draw Figure 2: RQ1 vs RQ2 mean Dice by region and size bin."""
     rq1 = load_scores("rq1_localization_scores.csv")
     rq2 = load_scores("rq2_localization_scores.csv")
 

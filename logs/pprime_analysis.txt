@@ -1,0 +1,20 @@
+(71/73) BraTS20_Training_221
+(72/73) BraTS20_Training_295
+(73/73) BraTS20_Training_039
+
+Saved 213 rows to /net/projects/ranalab/rajhansini/nlp_project/results/pprime_supervised_scores.csv
+
+[1] PIPELINE VALIDATION: overall Dice vs. published BraTS2020 range
+region      n  P-prime Dice       published  in range?
+ET         67        0.7576       0.70-0.80  yes
+TC         73        0.8122       0.80-0.87  yes
+WT         73        0.8513       0.86-0.89  close
+
+[2] SIZE STRATIFICATION: does a fully supervised model collapse on small lesions too?
+region      small   medium    large   L/S ratio
+ET         0.6363   0.7677   0.8583        1.3x
+TC         0.7071   0.8612   0.8866        1.3x
+WT         0.7815   0.8881   0.9243        1.2x
+
+    Compare against RQ1's text-conditioned ratios (ET 15.0x, TC 9.2x, WT 4.9x under Otsu;
+    ET 14.4x, TC 5.6x, WT 2.4x under the oracle threshold from Section 6.3).

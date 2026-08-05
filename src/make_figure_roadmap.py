@@ -16,6 +16,21 @@ GRAY = "#666666"
 
 
 def box(ax, xy, w, h, title, body, edgecolor, fontsize=8.3):
+    """Draw a labelled rounded box on the schematic.
+
+    Args:
+        ax: matplotlib axes to draw on.
+        xy: (x, y) of the box's lower-left corner.
+        w: box width.
+        h: box height.
+        title: bold heading drawn inside the box.
+        body: smaller descriptive text below the title.
+        edgecolor: border colour, encoding whether the outcome helped or hurt.
+        fontsize: title size.
+
+    Returns:
+        None; draws directly on ax.
+    """
     b = mpatches.FancyBboxPatch(xy, w, h, boxstyle="round,pad=0.02,rounding_size=0.05",
                                  linewidth=1.8, edgecolor=edgecolor, facecolor="#F5F5F5")
     ax.add_patch(b)
@@ -25,11 +40,24 @@ def box(ax, xy, w, h, title, body, edgecolor, fontsize=8.3):
 
 
 def arrow(ax, xy_from, xy_to, color=GRAY, style="-|>"):
+    """Draw a connecting arrow between two points on the schematic.
+
+    Args:
+        ax: matplotlib axes to draw on.
+        xy_from: (x, y) tail position.
+        xy_to: (x, y) head position.
+        color: arrow colour.
+        style: matplotlib connection style for curved edges.
+
+    Returns:
+        None; draws directly on ax.
+    """
     ax.annotate("", xy=xy_to, xytext=xy_from,
                 arrowprops=dict(arrowstyle=style, color=color, lw=1.5, shrinkA=2, shrinkB=2))
 
 
 def main():
+    """Draw the decision-tree diagram of every ablation and its outcome."""
     fig, ax = plt.subplots(figsize=(13, 9))
     ax.set_xlim(0, 13)
     ax.set_ylim(0, 9)

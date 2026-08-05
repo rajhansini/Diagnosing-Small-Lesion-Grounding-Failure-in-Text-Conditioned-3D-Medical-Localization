@@ -26,11 +26,20 @@ SCALES = [(16, 8), (32, 16), (64, 32)]
 
 
 def load_true_volumes():
+    """Load lesion_volumes.csv keyed by patient ID.
+
+    Volumes are true native-resolution mm^3, not measured on the resampled 128^3 grid, so size
+    binning does not inherit resampling error.
+
+    Returns:
+        dict mapping patient_id -> the CSV row for that patient.
+    """
     with open(LESION_CSV, newline="") as f:
         return {row["patient_id"]: row for row in csv.DictReader(f)}
 
 
 def main():
+    """Evaluate the naive multi-scale window ensemble (16/32/64, voxel-wise max)."""
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print("device:", device, "| scales:", SCALES)
 

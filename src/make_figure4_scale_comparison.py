@@ -20,11 +20,20 @@ BINS = ["small", "medium", "large"]
 
 
 def load_scores(filename):
+    """Read a per-patient score CSV from results/ into a list of dict rows.
+
+    Args:
+        filename: basename of the CSV inside the results directory.
+
+    Returns:
+        List of dicts, one per (patient, region) row.
+    """
     with open(os.path.join(RESULTS_DIR, filename), newline="") as f:
         return list(csv.DictReader(f))
 
 
 def main():
+    """Draw the RQ1 vs RQ3b vs RQ4 grouped bar chart."""
     rq1 = load_scores("rq1_localization_scores.csv")
     rq3b = load_scores("rq3b_scale16only_scores.csv")
     rq4 = load_scores("rq4_localization_scores.csv")

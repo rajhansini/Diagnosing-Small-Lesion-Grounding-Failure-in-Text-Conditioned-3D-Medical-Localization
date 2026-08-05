@@ -12,16 +12,24 @@ PubMedBERT text embeddings (mean-pooled region descriptions) are aligned with 3D
 
 ## Findings
 
-The contrastive alignment baseline learns genuine signal (validation accuracy 0.671 vs. 0.25 chance). The core result: localization quality collapses monotonically with lesion size across all three tumor subregions (5 to 15x Dice degradation from large to small), surviving a chance-level control, and replicating exactly (9 of 9 region×bin comparisons) across two additional independent train/val splits. Size-conditioned prompting improves medium/large lesions but significantly worsens small enhancing-tumor localization. Isolating a single smaller sliding window improves tumor core and whole tumor localization after correcting for multiple comparisons; pushing the window size down further (12³, then 8³) shows the improvement continuing with no plateau, and the enhancing-tumor region's statistical picture actually strengthens at smaller windows, clearing full-family-corrected significance at 8³ — pushed one step further to 6³, the trend plateaus for enhancing tumor and tumor core specifically, while whole tumor (the largest region) keeps improving. Retraining with scale-matched patches reaches better classification accuracy but produces significantly worse localization everywhere; a pure-noise probe confirms the model keys off resize-interpolation artifacts rather than genuine tumor content, a directly-verified case of shortcut learning, with a generic bias toward the "large" class acting as an embedding-space hub. A follow-up attempt to directly repair that hub with a uniformity regularizer fixes 2 of 3 shortcut behaviors and beats the scale-matched model in all 9 region×size-bin combinations, but still falls short of the plain baseline in most bins — the simplest fix (the isolated smaller window, no retraining) remains the best-performing intervention found. Replacing templated text with naturalistic radiology-style language reproduces the original finding almost exactly, ruling out template phrasing as a confound.
+**The failure is real, and specific to text conditioning.** Localization collapses monotonically with lesion size across all three tumor subregions (5–15x Dice degradation, large to small), survives a chance-level control, and replicates in 9 of 9 region×bin comparisons across three independent splits. A **P′ check** — a conventional supervised U-Net trained on the identical data, split and Dice implementation — reaches published BraTS Dice (ET 0.758 / TC 0.812 / WT 0.851) and degrades by only 1.2–1.3x large-to-small. Small lesions are therefore learnable on this data, and Dice's geometric size penalty does not explain the collapse; text-conditioned grounding is what fails.
+
+**About half the measured collapse was a metric artifact.** The unsupervised Otsu threshold over-predicts lesion volume by 6–223x and is *anti*-correlated with true lesion size (ρ = −0.26 to −0.48). Under an oracle-volume threshold the large/small ratio falls from 15.0/9.2/4.9 to 14.4/5.6/2.4. A threshold-free pointing game locates what remains: roughly uniform 46–122x chance accuracy everywhere, except small enhancing tumor, where the peak response lands inside the true lesion in **0 of 21 patients**.
+
+**The language pathway contributes almost nothing.** Swapping PubMedBERT for general-domain BERT, for a randomly initialized never-trained BERT, or for random vectors carrying no language at all produces effects that flip sign across training runs — indistinguishable from the 0.0044 Dice noise floor of simply retraining the baseline. Only discarding PubMedBERT's anisotropic embedding *geometry* reliably hurts. Probing the trained model directly, negation, word-order destruction, referent swapping and contentless filler all leave the projected query above 0.94 cosine to the original and the heatmap at ρ = 0.56–1.00; for whole tumor, generic filler *beats* the true clinical description. The query functions as an opaque class identifier that happens to be spelled in English.
+
+**No intervention fixed the failure — and the one that appeared to was a threshold artifact.** Size-conditioned prompting, multi-scale ensembling, scale-matched retraining (which a noise probe shows learned resize-interpolation shortcuts, ANOVA p≈4×10⁻²⁵¹) and a uniformity regularizer all fail to beat the plain baseline. Evaluating the frozen model at a smaller query window appeared to win decisively — until re-scored under better binarizers, where its +0.044 Dice advantage inverts to −0.039 under a deployable top-1% rule. It does genuinely improve *pointing* accuracy for enhancing tumor in every size bin, lifting the previously-at-chance small-ET bin to 309x chance.
+
+The durable contribution is methodological: a set of controls — chance baselines, noise probes, cross-seed replication at the level of the training run, pipeline decomposition, metric triangulation, and metric well-definedness — that between them overturned four conclusions this project had already written down as findings.
 
 Full writeup: [`report_draft.pdf`](report_draft.pdf) / [`report_draft.md`](report_draft.md).
 
 ## Repository layout
 
-- `src/` — all code. See [`src/README.md`](src/README.md) for a file-by-file breakdown.
-- `slurm/` — SLURM batch scripts used to run training/evaluation on the cluster's GPU partitions.
-- `results/` — per-patient CSV outputs (Dice/IoU scores) from every evaluation run.
-- `figures/` — generated report figures.
+- `src/` — all code (53 files, 6,866 lines). See [`src/README.md`](src/README.md) for a file-by-file breakdown with line counts.
+- `slurm/` — SLURM batch scripts for every training and evaluation job. See [`slurm/README.md`](slurm/README.md).
+- `results/` — per-patient CSV outputs from every evaluation run. See [`results/README.md`](results/README.md) for the schema.
+- `figures/` — generated report figures. See [`figures/README.md`](figures/README.md).
 - `report_draft.md` / `report_draft.pdf` — the final report.
 
 Not included in this repo (see below for how to regenerate):
@@ -35,10 +43,12 @@ Not included in this repo (see below for how to regenerate):
 2. **Data**: download BraTS2020 from Kaggle (`awsaf49/brats20-dataset-training-validation`) into `data/BraTS2020_TrainingData/`.
 3. **Preprocess**: `python src/preprocess.py` — normalizes volumes, resizes to 128³, computes per-patient lesion volumes for size-bin stratification.
 4. **Text embeddings**: `python src/text_encoder.py` — embeds all region descriptions (base, size-conditioned, and naturalistic variants) with PubMedBERT.
-5. **Train the P′ baseline**: `python src/train_baseline.py` (see `slurm/train_baseline.sbatch` for the cluster job).
-6. **Run RQ1 through RQ6**: see the corresponding `train_rqN.py` / `evaluate_rqN.py` scripts and their matching `slurm/*.sbatch` files.
-7. **Statistical analysis**: `python src/analyze_all_comparisons.py` reproduces every paired significance test with BH-FDR correction.
-8. **Figures**: `python src/make_figures.py`, `python src/make_figure4_scale_comparison.py`, `python src/make_overlay_figure.py`, `python src/make_figure5_window_curve.py`, `python src/make_figure_architecture.py`, `python src/make_figure_leaderboard.py`, `python src/make_figure_roadmap.py`, `python src/make_figure_significance_heatmap.py`.
+5. **Train the alignment baseline**: `python src/train_baseline.py` (see `slurm/train_baseline.sbatch`). Pass `--seed 1` / `--seed 2` for the cross-seed replications.
+6. **Run the P′ check**: `python src/train_pprime_supervised.py` then `python src/evaluate_pprime_supervised.py` — validates the shared pipeline against published BraTS Dice before any result downstream is trusted.
+7. **Run RQ1 through RQ12**: see the corresponding `train_rqN.py` / `evaluate_rqN.py` scripts and their matching `slurm/*.sbatch` files. Smoke-test each on the `dev` partition first (`slurm/smoke_test_*.sbatch`).
+8. **Statistical analysis**: `python src/analyze_full_family.py` reproduces all 171 paired significance tests with BH-FDR correction under both pooled and per-RQ families. `analyze_seed_replication.py` and `analyze_rq7_multiseed.py` do the cross-run replication checks; `analyze_rq11.py` and `analyze_rq12.py` the threshold and grounding decompositions.
+9. **Figures**: `python src/make_figures.py`, then `make_figure4_scale_comparison.py`, `make_overlay_figure.py`, `make_figure5_window_curve.py`, `make_figure_architecture.py`, `make_figure_leaderboard.py`, `make_figure_roadmap.py`, `make_figure_significance_heatmap.py`, `make_figures_rq7_rq8_rq12.py`.
+10. **Build the report**: `pandoc report_draft.md -o report_draft.pdf --pdf-engine=xelatex -V geometry:margin=1in -V fontsize=10pt -V mainfont="DejaVu Serif" -V monofont="DejaVu Sans Mono" --toc` (DejaVu is needed for the Unicode maths and Greek in the text).
 
 ## Attribution
 

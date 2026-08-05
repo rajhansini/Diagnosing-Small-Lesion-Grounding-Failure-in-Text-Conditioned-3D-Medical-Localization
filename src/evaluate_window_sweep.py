@@ -19,6 +19,7 @@ from text_encoder import REGION_ORDER
 
 
 def main():
+    """Evaluate a single isolated window size on the frozen baseline, with no ensembling."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--window_size", type=int, required=True)
     parser.add_argument("--stride", type=int, required=True)

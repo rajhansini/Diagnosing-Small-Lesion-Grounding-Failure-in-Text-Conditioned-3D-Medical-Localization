@@ -1,0 +1,106 @@
+============================================================================================================
+RQ12: does the smaller window improve GROUNDING, or only overlap?
+============================================================================================================
+
+[A] THE TIE ARTIFACT: how many voxels share the maximum heatmap value?
+    A sliding window of stride s makes the heatmap piecewise-constant over s^3 blocks, so
+    'the peak voxel' is ambiguous and np.argmax silently returns the block's corner.
+window   stride     median ties   block s^3
+32       16                4096        4096
+8        8                  512         512
+
+    The median tie count equals the stride block exactly, confirming the mechanism.
+    RQ11 (Section 6.3) used the first-argmax rule at stride 16, so its pointing hit rates
+    are biased LOW and its peak-to-lesion distances biased HIGH. Corrected below.
+
+[B] POINTING GAME, both rules, both window sizes
+
+  --- window 32, first-argmax (RQ11's rule) ---
+  reg  bin        n  hits    rate   chance     lift          p  med dist
+  ET   small     21     0   0.000   0.0005     0.0x   1.00e+00     27.5m
+  ET   medium    23     3   0.130   0.0018    74.5x   9.25e-06      7.7m
+  ET   large     23     6   0.261   0.0057    45.9x   3.12e-09      2.4m
+  TC   small     27     2   0.074   0.0011    64.8x   4.51e-04     25.1m
+  TC   medium    23     9   0.391   0.0035   111.4x   6.36e-17      7.7m
+  TC   large     23    13   0.565   0.0095    59.6x   5.29e-21      0.0m
+  WT   small     32     6   0.188   0.0044    42.9x   5.71e-09      8.7m
+  WT   medium    21    15   0.714   0.0105    68.3x   1.01e-25      0.0m
+  WT   large     20    16   0.800   0.0184    43.5x   7.87e-25      0.0m
+
+  --- window 32, plateau centroid (corrected) ---
+  reg  bin        n  hits    rate   chance     lift          p  med dist
+  ET   small     21     0   0.000   0.0005     0.0x   1.00e+00     23.7m
+  ET   medium    23     3   0.130   0.0018    74.5x   9.25e-06      9.4m
+  ET   large     23     8   0.348   0.0057    61.2x   4.93e-13      2.9m
+  TC   small     27     3   0.111   0.0011    97.1x   4.29e-06     12.0m
+  TC   medium    23     8   0.348   0.0035    99.0x   1.08e-14      1.9m
+  TC   large     23    16   0.696   0.0095    73.3x   9.93e-28      0.0m
+  WT   small     32    17   0.531   0.0044   121.6x   4.07e-32      0.0m
+  WT   medium    21    18   0.857   0.0105    81.9x   2.91e-33      0.0m
+  WT   large     20    17   0.850   0.0184    46.2x   3.47e-27      0.0m
+
+  --- window 8, first-argmax (RQ11's rule) ---
+  reg  bin        n  hits    rate   chance     lift          p  med dist
+  ET   small     21     0   0.000   0.0005     0.0x   1.00e+00     50.4m
+  ET   medium    23     1   0.043   0.0018    24.8x   3.95e-02      6.8m
+  ET   large     23     0   0.000   0.0057     0.0x   1.00e+00      7.4m
+  TC   small     27     1   0.037   0.0011    32.4x   3.04e-02     42.3m
+  TC   medium    23     1   0.043   0.0035    12.4x   7.77e-02     40.3m
+  TC   large     23     2   0.087   0.0095     9.2x   2.00e-02     29.0m
+  WT   small     32    14   0.438   0.0044   100.2x   4.03e-25      3.4m
+  WT   medium    21     9   0.429   0.0105    41.0x   3.94e-13      3.6m
+  WT   large     20    16   0.800   0.0184    43.5x   7.87e-25      0.0m
+
+  --- window 8, plateau centroid (corrected) ---
+  reg  bin        n  hits    rate   chance     lift          p  med dist
+  ET   small     21     3   0.143   0.0005   309.3x   1.30e-07     48.6m
+  ET   medium    23     9   0.391   0.0018   223.6x   1.23e-19     10.4m
+  ET   large     23    13   0.565   0.0057    99.5x   6.96e-24      0.0m
+  TC   small     27     0   0.000   0.0011     0.0x   1.00e+00     39.5m
+  TC   medium    23     1   0.043   0.0035    12.4x   7.77e-02     43.3m
+  TC   large     23     2   0.087   0.0095     9.2x   2.00e-02     31.1m
+  WT   small     32    12   0.375   0.0044    85.9x   1.00e-20      1.9m
+  WT   medium    21    12   0.571   0.0105    54.6x   4.63e-19      0.0m
+  WT   large     20    17   0.850   0.0184    46.2x   3.47e-27      0.0m
+
+[C] DOES THE 8^3 WINDOW POINT BETTER THAN 32^3? (corrected centroid rule)
+  reg  bin        n  w32 rate  w8 rate   change   verdict
+  ET   small     21     0.000    0.143   +0.143   BETTER
+  ET   medium    23     0.130    0.391   +0.261   BETTER
+  ET   large     23     0.348    0.565   +0.217   BETTER
+  TC   small     27     0.111    0.000   -0.111   WORSE
+  TC   medium    23     0.348    0.043   -0.304   WORSE
+  TC   large     23     0.696    0.087   -0.609   WORSE
+  WT   small     32     0.531    0.375   -0.156   WORSE
+  WT   medium    21     0.857    0.571   -0.286   WORSE
+  WT   large     20     0.850    0.850   +0.000   ~same
+
+[D] DOES THE DICE WIN SURVIVE A BETTER BINARIZER? (window 8 minus window 32)
+  method         reg     n      w32       w8    delta          p
+  otsu           ET     67   0.0671   0.0818  +0.0148   6.27e-09
+  otsu           TC     73   0.0810   0.1155  +0.0345   2.10e-13
+  otsu           WT     73   0.1412   0.2201  +0.0789   1.13e-13
+
+  pct90          ET     67   0.0510   0.0499  -0.0011   4.35e-10
+  pct90          TC     73   0.0828   0.0820  -0.0008   1.39e-06
+  pct90          WT     73   0.1722   0.1699  -0.0023   4.25e-06
+
+  pct95          ET     67   0.0935   0.0872  -0.0064   2.85e-07
+  pct95          TC     73   0.1469   0.1431  -0.0038   1.51e-04
+  pct95          WT     73   0.2848   0.2838  -0.0010   1.67e-01
+
+  pct99          ET     67   0.2003   0.1945  -0.0058   5.42e-01
+  pct99          TC     73   0.2808   0.1679  -0.1129   6.26e-06
+  pct99          WT     73   0.4015   0.4048  +0.0033   8.45e-01
+
+  oracle_volume  ET     67   0.1849   0.2175  +0.0326   2.55e-02
+  oracle_volume  TC     73   0.2979   0.1273  -0.1706   2.19e-07
+  oracle_volume  WT     73   0.4327   0.4470  +0.0143   8.41e-01
+
+[E] SUMMARY: pooled over all regions and bins, per binarizer
+  method             n      w32       w8    delta          p  window-8 wins?
+  otsu             213   0.0972   0.1407  +0.0435   3.82e-34  yes
+  pct90            213   0.1034   0.1020  -0.0014   3.71e-18  no
+  pct95            213   0.1774   0.1738  -0.0036   3.87e-08  no
+  pct99            213   0.2968   0.2574  -0.0394   6.38e-04  no
+  oracle_volume    213   0.3085   0.2652  -0.0433   1.00e-02  no

@@ -1,0 +1,240 @@
+====================================================================================================================================
+FULL FAMILY: 171 paired Wilcoxon tests across 8 research questions
+Baseline for every comparison is RQ1 (results/rq1_localization_scores.csv)
+====================================================================================================================================
+comparison                          reg bin        n    base   other    delta              95% CI  effect     p_raw   q_pool     q_rq  sig
+------------------------------------------------------------------------------------------------------------------------------------
+RQ2 (size-conditioned text)         ET  small     21  0.0100  0.0079  -0.0021   [-0.0036,-0.0008]  -0.628  1.01e-02   0.0135   0.0152  **pooled+perRQ
+RQ2 (size-conditioned text)         ET  medium    23  0.0374  0.0378  +0.0003   [-0.0090,+0.0137]  -0.290  2.34e-01   0.2570   0.2345  
+RQ2 (size-conditioned text)         ET  large     23  0.1488  0.1913  +0.0424   [+0.0245,+0.0634]  +0.899  2.62e-05   0.0001   0.0001  **pooled+perRQ
+RQ2 (size-conditioned text)         TC  small     27  0.0192  0.0269  +0.0077   [+0.0051,+0.0105]  +0.979  1.04e-07   0.0000   0.0000  **pooled+perRQ
+RQ2 (size-conditioned text)         TC  medium    23  0.0590  0.0950  +0.0360   [+0.0213,+0.0533]  +0.993  4.77e-07   0.0000   0.0000  **pooled+perRQ
+RQ2 (size-conditioned text)         TC  large     23  0.1756  0.2522  +0.0766   [+0.0584,+0.0981]  +1.000  2.38e-07   0.0000   0.0000  **pooled+perRQ
+RQ2 (size-conditioned text)         WT  small     32  0.0568  0.0594  +0.0025   [+0.0002,+0.0048]  +0.492  1.68e-02   0.0215   0.0216  **pooled+perRQ
+RQ2 (size-conditioned text)         WT  medium    21  0.1367  0.1466  +0.0099   [-0.0010,+0.0212]  +0.489  5.02e-02   0.0588   0.0565  
+RQ2 (size-conditioned text)         WT  large     20  0.2809  0.3215  +0.0406   [+0.0170,+0.0667]  +0.705  4.22e-03   0.0060   0.0076  **pooled+perRQ
+RQ3 (multi-scale ensemble)          ET  small     21  0.0100  0.0089  -0.0011   [-0.0026,+0.0003]  -0.203  4.32e-01   0.4531   0.4319  
+RQ3 (multi-scale ensemble)          ET  medium    23  0.0374  0.0262  -0.0113   [-0.0167,-0.0064]  -0.841  1.28e-04   0.0002   0.0002  **pooled+perRQ
+RQ3 (multi-scale ensemble)          ET  large     23  0.1488  0.1189  -0.0299   [-0.0519,-0.0101]  -0.565  1.63e-02   0.0210   0.0198  **pooled+perRQ
+RQ3 (multi-scale ensemble)          TC  small     27  0.0192  0.0193  +0.0001   [-0.0028,+0.0028]  +0.190  4.00e-01   0.4220   0.4088  
+RQ3 (multi-scale ensemble)          TC  medium    23  0.0590  0.0500  -0.0089   [-0.0182,-0.0005]  -0.377  1.19e-01   0.1343   0.1242  
+RQ3 (multi-scale ensemble)          TC  large     23  0.1756  0.1347  -0.0408   [-0.0668,-0.0151]  -0.580  1.35e-02   0.0177   0.0169  **pooled+perRQ
+RQ3 (multi-scale ensemble)          WT  small     32  0.0568  0.0641  +0.0072   [+0.0011,+0.0132]  +0.432  3.25e-02   0.0400   0.0385  **pooled+perRQ
+RQ3 (multi-scale ensemble)          WT  medium    21  0.1367  0.0988  -0.0379   [-0.0545,-0.0198]  -0.766  1.18e-03   0.0017   0.0017  **pooled+perRQ
+RQ3 (multi-scale ensemble)          WT  large     20  0.2809  0.1988  -0.0821   [-0.1266,-0.0362]  -0.676  6.39e-03   0.0089   0.0087  **pooled+perRQ
+RQ3b (16^3 window)                  ET  small     21  0.0100  0.0111  +0.0011   [-0.0001,+0.0022]  +0.515  3.84e-02   0.0463   0.0432  **pooled+perRQ
+RQ3b (16^3 window)                  ET  medium    23  0.0374  0.0393  +0.0019   [-0.0036,+0.0061]  +0.493  3.84e-02   0.0463   0.0432  **pooled+perRQ
+RQ3b (16^3 window)                  ET  large     23  0.1488  0.1602  +0.0113   [-0.0005,+0.0234]  +0.471  4.84e-02   0.0571   0.0519  raw only
+RQ3b (16^3 window)                  TC  small     27  0.0192  0.0230  +0.0038   [+0.0023,+0.0054]  +0.857  1.88e-05   0.0000   0.0000  **pooled+perRQ
+RQ3b (16^3 window)                  TC  medium    23  0.0590  0.0688  +0.0099   [+0.0061,+0.0135]  +0.906  2.10e-05   0.0000   0.0000  **pooled+perRQ
+RQ3b (16^3 window)                  TC  large     23  0.1756  0.1982  +0.0227   [+0.0092,+0.0354]  +0.681  3.07e-03   0.0044   0.0043  **pooled+perRQ
+RQ3b (16^3 window)                  WT  small     32  0.0568  0.0719  +0.0151   [+0.0119,+0.0185]  +1.000  4.66e-10   0.0000   0.0000  **pooled+perRQ
+RQ3b (16^3 window)                  WT  medium    21  0.1367  0.1555  +0.0188   [+0.0121,+0.0256]  +0.905  5.25e-05   0.0001   0.0001  **pooled+perRQ
+RQ3b (16^3 window)                  WT  large     20  0.2809  0.3431  +0.0622   [+0.0457,+0.0792]  +0.990  3.81e-06   0.0000   0.0000  **pooled+perRQ
+RQ3c (12^3 window)                  ET  small     21  0.0100  0.0116  +0.0016   [+0.0005,+0.0028]  +0.619  1.13e-02   0.0149   0.0146  **pooled+perRQ
+RQ3c (12^3 window)                  ET  medium    23  0.0374  0.0402  +0.0028   [-0.0030,+0.0072]  +0.616  8.26e-03   0.0113   0.0109  **pooled+perRQ
+RQ3c (12^3 window)                  ET  large     23  0.1488  0.1614  +0.0125   [+0.0014,+0.0237]  +0.486  4.15e-02   0.0497   0.0456  **pooled+perRQ
+RQ3c (12^3 window)                  TC  small     27  0.0192  0.0235  +0.0043   [+0.0026,+0.0061]  +0.894  5.53e-06   0.0000   0.0000  **pooled+perRQ
+RQ3c (12^3 window)                  TC  medium    23  0.0590  0.0717  +0.0128   [+0.0086,+0.0170]  +0.913  1.67e-05   0.0000   0.0000  **pooled+perRQ
+RQ3c (12^3 window)                  TC  large     23  0.1756  0.2080  +0.0325   [+0.0184,+0.0466]  +0.812  2.53e-04   0.0004   0.0004  **pooled+perRQ
+RQ3c (12^3 window)                  WT  small     32  0.0568  0.0734  +0.0166   [+0.0127,+0.0208]  +1.000  4.66e-10   0.0000   0.0000  **pooled+perRQ
+RQ3c (12^3 window)                  WT  medium    21  0.1367  0.1618  +0.0251   [+0.0176,+0.0330]  +0.948  1.34e-05   0.0000   0.0000  **pooled+perRQ
+RQ3c (12^3 window)                  WT  large     20  0.2809  0.3602  +0.0794   [+0.0572,+0.1013]  +0.971  9.54e-06   0.0000   0.0000  **pooled+perRQ
+RQ3c (8^3 window)                   ET  small     21  0.0100  0.0133  +0.0033   [+0.0016,+0.0049]  +0.810  5.10e-04   0.0008   0.0008  **pooled+perRQ
+RQ3c (8^3 window)                   ET  medium    23  0.0374  0.0489  +0.0114   [+0.0056,+0.0168]  +0.841  1.28e-04   0.0002   0.0002  **pooled+perRQ
+RQ3c (8^3 window)                   ET  large     23  0.1488  0.1773  +0.0285   [+0.0182,+0.0384]  +0.877  4.94e-05   0.0001   0.0001  **pooled+perRQ
+RQ3c (8^3 window)                   TC  small     27  0.0192  0.0286  +0.0095   [+0.0069,+0.0120]  +1.000  1.49e-08   0.0000   0.0000  **pooled+perRQ
+RQ3c (8^3 window)                   TC  medium    23  0.0590  0.0913  +0.0323   [+0.0261,+0.0388]  +1.000  2.38e-07   0.0000   0.0000  **pooled+perRQ
+RQ3c (8^3 window)                   TC  large     23  0.1756  0.2416  +0.0661   [+0.0506,+0.0824]  +0.993  4.77e-07   0.0000   0.0000  **pooled+perRQ
+RQ3c (8^3 window)                   WT  small     32  0.0568  0.0948  +0.0379   [+0.0313,+0.0452]  +1.000  4.66e-10   0.0000   0.0000  **pooled+perRQ
+RQ3c (8^3 window)                   WT  medium    21  0.1367  0.2148  +0.0781   [+0.0672,+0.0897]  +1.000  9.54e-07   0.0000   0.0000  **pooled+perRQ
+RQ3c (8^3 window)                   WT  large     20  0.2809  0.4262  +0.1453   [+0.1214,+0.1687]  +1.000  1.91e-06   0.0000   0.0000  **pooled+perRQ
+RQ3c (6^3 window)                   ET  small     21  0.0100  0.0132  +0.0032   [+0.0019,+0.0046]  +0.870  1.31e-04   0.0002   0.0002  **pooled+perRQ
+RQ3c (6^3 window)                   ET  medium    23  0.0374  0.0477  +0.0103   [+0.0043,+0.0152]  +0.833  1.53e-04   0.0002   0.0002  **pooled+perRQ
+RQ3c (6^3 window)                   ET  large     23  0.1488  0.1772  +0.0283   [+0.0177,+0.0385]  +0.855  8.85e-05   0.0002   0.0002  **pooled+perRQ
+RQ3c (6^3 window)                   TC  small     27  0.0192  0.0284  +0.0093   [+0.0069,+0.0116]  +1.000  1.49e-08   0.0000   0.0000  **pooled+perRQ
+RQ3c (6^3 window)                   TC  medium    23  0.0590  0.0909  +0.0320   [+0.0255,+0.0387]  +1.000  2.38e-07   0.0000   0.0000  **pooled+perRQ
+RQ3c (6^3 window)                   TC  large     23  0.1756  0.2450  +0.0694   [+0.0541,+0.0863]  +0.993  4.77e-07   0.0000   0.0000  **pooled+perRQ
+RQ3c (6^3 window)                   WT  small     32  0.0568  0.0974  +0.0406   [+0.0340,+0.0477]  +1.000  4.66e-10   0.0000   0.0000  **pooled+perRQ
+RQ3c (6^3 window)                   WT  medium    21  0.1367  0.2195  +0.0828   [+0.0718,+0.0949]  +1.000  9.54e-07   0.0000   0.0000  **pooled+perRQ
+RQ3c (6^3 window)                   WT  large     20  0.2809  0.4372  +0.1563   [+0.1317,+0.1807]  +1.000  1.91e-06   0.0000   0.0000  **pooled+perRQ
+RQ4 (scale-matched)                 ET  small     21  0.0100  0.0049  -0.0051   [-0.0074,-0.0030]  -1.000  9.54e-07   0.0000   0.0000  **pooled+perRQ
+RQ4 (scale-matched)                 ET  medium    23  0.0374  0.0181  -0.0193   [-0.0250,-0.0148]  -1.000  2.38e-07   0.0000   0.0000  **pooled+perRQ
+RQ4 (scale-matched)                 ET  large     23  0.1488  0.0641  -0.0848   [-0.1080,-0.0627]  -1.000  2.38e-07   0.0000   0.0000  **pooled+perRQ
+RQ4 (scale-matched)                 TC  small     27  0.0192  0.0124  -0.0068   [-0.0088,-0.0048]  -1.000  1.49e-08   0.0000   0.0000  **pooled+perRQ
+RQ4 (scale-matched)                 TC  medium    23  0.0590  0.0358  -0.0232   [-0.0310,-0.0166]  -1.000  2.38e-07   0.0000   0.0000  **pooled+perRQ
+RQ4 (scale-matched)                 TC  large     23  0.1756  0.0982  -0.0773   [-0.0957,-0.0595]  -1.000  2.38e-07   0.0000   0.0000  **pooled+perRQ
+RQ4 (scale-matched)                 WT  small     32  0.0568  0.0476  -0.0092   [-0.0131,-0.0056]  -0.799  2.02e-05   0.0000   0.0000  **pooled+perRQ
+RQ4 (scale-matched)                 WT  medium    21  0.1367  0.1057  -0.0310   [-0.0420,-0.0204]  -0.931  2.38e-05   0.0000   0.0000  **pooled+perRQ
+RQ4 (scale-matched)                 WT  large     20  0.2809  0.1777  -0.1032   [-0.1248,-0.0800]  -1.000  1.91e-06   0.0000   0.0000  **pooled+perRQ
+RQ6 (uniformity fix)                ET  small     21  0.0100  0.0055  -0.0045   [-0.0066,-0.0025]  -1.000  9.54e-07   0.0000   0.0000  **pooled+perRQ
+RQ6 (uniformity fix)                ET  medium    23  0.0374  0.0202  -0.0173   [-0.0233,-0.0123]  -1.000  2.38e-07   0.0000   0.0000  **pooled+perRQ
+RQ6 (uniformity fix)                ET  large     23  0.1488  0.0705  -0.0784   [-0.1007,-0.0567]  -1.000  2.38e-07   0.0000   0.0000  **pooled+perRQ
+RQ6 (uniformity fix)                TC  small     27  0.0192  0.0163  -0.0029   [-0.0048,-0.0011]  -0.556  1.04e-02   0.0138   0.0133  **pooled+perRQ
+RQ6 (uniformity fix)                TC  medium    23  0.0590  0.0462  -0.0128   [-0.0188,-0.0070]  -0.790  4.08e-04   0.0006   0.0006  **pooled+perRQ
+RQ6 (uniformity fix)                TC  large     23  0.1756  0.1201  -0.0555   [-0.0743,-0.0372]  -0.935  7.87e-06   0.0000   0.0000  **pooled+perRQ
+RQ6 (uniformity fix)                WT  small     32  0.0568  0.0605  +0.0037   [+0.0003,+0.0074]  +0.330  1.06e-01   0.1213   0.1197  
+RQ6 (uniformity fix)                WT  medium    21  0.1367  0.1368  +0.0001   [-0.0108,+0.0099]  +0.126  6.33e-01   0.6408   0.6333  
+RQ6 (uniformity fix)                WT  large     20  0.2809  0.2255  -0.0554   [-0.0750,-0.0369]  -0.943  2.67e-05   0.0001   0.0000  **pooled+perRQ
+RQ5 (naturalistic text)             ET  small     21  0.0100  0.0091  -0.0008   [-0.0017,+0.0001]  -0.457  7.31e-02   0.0851   0.2334  
+RQ5 (naturalistic text)             ET  medium    23  0.0374  0.0344  -0.0030   [-0.0098,+0.0020]  -0.344  1.58e-01   0.1764   0.2842  
+RQ5 (naturalistic text)             ET  large     23  0.1488  0.1479  -0.0009   [-0.0169,+0.0168]  -0.130  5.92e-01   0.6064   0.5922  
+RQ5 (naturalistic text)             TC  small     27  0.0192  0.0199  +0.0007   [-0.0007,+0.0020]  +0.219  3.28e-01   0.3507   0.3692  
+RQ5 (naturalistic text)             TC  medium    23  0.0590  0.0643  +0.0053   [-0.0001,+0.0126]  +0.296  2.23e-01   0.2481   0.2964  
+RQ5 (naturalistic text)             TC  large     23  0.1756  0.1914  +0.0159   [+0.0053,+0.0258]  +0.674  3.45e-03   0.0049   0.0311  **pooled+perRQ
+RQ5 (naturalistic text)             WT  small     32  0.0568  0.0586  +0.0018   [-0.0008,+0.0042]  +0.363  7.78e-02   0.0899   0.2334  
+RQ5 (naturalistic text)             WT  medium    21  0.1367  0.1419  +0.0051   [-0.0012,+0.0115]  +0.394  1.19e-01   0.1343   0.2685  
+RQ5 (naturalistic text)             WT  large     20  0.2809  0.2901  +0.0092   [-0.0056,+0.0237]  +0.314  2.31e-01   0.2543   0.2964  
+RQ7 (BERT-base)                     ET  small     21  0.0100  0.0114  +0.0014   [+0.0002,+0.0030]  +0.684  8.90e-03   0.0121   0.0129  **pooled+perRQ
+RQ7 (BERT-base)                     ET  medium    23  0.0374  0.0400  +0.0025   [-0.0008,+0.0058]  +0.403  1.06e-01   0.1213   0.1273  
+RQ7 (BERT-base)                     ET  large     23  0.1488  0.1579  +0.0090   [-0.0024,+0.0219]  +0.268  2.73e-01   0.2932   0.3165  
+RQ7 (BERT-base)                     TC  small     27  0.0192  0.0217  +0.0025   [+0.0006,+0.0047]  +0.481  2.80e-02   0.0350   0.0360  **pooled+perRQ
+RQ7 (BERT-base)                     TC  medium    23  0.0590  0.0621  +0.0032   [-0.0016,+0.0083]  +0.188  4.45e-01   0.4642   0.4857  
+RQ7 (BERT-base)                     TC  large     23  0.1756  0.1928  +0.0173   [+0.0073,+0.0278]  +0.688  2.73e-03   0.0040   0.0043  **pooled+perRQ
+RQ7 (BERT-base)                     WT  small     32  0.0568  0.0703  +0.0135   [+0.0086,+0.0185]  +0.837  5.97e-06   0.0000   0.0000  **pooled+perRQ
+RQ7 (BERT-base)                     WT  medium    21  0.1367  0.1744  +0.0377   [+0.0233,+0.0534]  +0.943  2.19e-04   0.0003   0.0004  **pooled+perRQ
+RQ7 (BERT-base)                     WT  large     20  0.2809  0.3385  +0.0576   [+0.0391,+0.0792]  +0.971  9.54e-06   0.0000   0.0000  **pooled+perRQ
+RQ7 (random-init BERT)              ET  small     21  0.0100  0.0157  +0.0057   [+0.0017,+0.0095]  +0.723  2.48e-03   0.0036   0.0041  **pooled+perRQ
+RQ7 (random-init BERT)              ET  medium    23  0.0374  0.0846  +0.0471   [+0.0313,+0.0654]  +0.978  1.19e-06   0.0000   0.0000  **pooled+perRQ
+RQ7 (random-init BERT)              ET  large     23  0.1488  0.2254  +0.0766   [+0.0587,+0.0954]  +1.000  2.38e-07   0.0000   0.0000  **pooled+perRQ
+RQ7 (random-init BERT)              TC  small     27  0.0192  0.0333  +0.0142   [+0.0074,+0.0232]  +1.000  1.49e-08   0.0000   0.0000  **pooled+perRQ
+RQ7 (random-init BERT)              TC  medium    23  0.0590  0.0947  +0.0357   [+0.0247,+0.0472]  +0.978  1.19e-06   0.0000   0.0000  **pooled+perRQ
+RQ7 (random-init BERT)              TC  large     23  0.1756  0.2434  +0.0678   [+0.0541,+0.0824]  +1.000  2.38e-07   0.0000   0.0000  **pooled+perRQ
+RQ7 (random-init BERT)              WT  small     32  0.0568  0.0673  +0.0105   [+0.0074,+0.0140]  +1.000  1.17e-06   0.0000   0.0000  **pooled+perRQ
+RQ7 (random-init BERT)              WT  medium    21  0.1367  0.1735  +0.0368   [+0.0230,+0.0525]  +1.000  9.54e-07   0.0000   0.0000  **pooled+perRQ
+RQ7 (random-init BERT)              WT  large     20  0.2809  0.3421  +0.0612   [+0.0411,+0.0858]  +1.000  1.91e-06   0.0000   0.0000  **pooled+perRQ
+RQ7 (random orthonormal)            ET  small     21  0.0100  0.0082  -0.0018   [-0.0029,-0.0007]  -0.667  8.97e-03   0.0121   0.0129  **pooled+perRQ
+RQ7 (random orthonormal)            ET  medium    23  0.0374  0.0287  -0.0088   [-0.0149,-0.0044]  -0.862  7.32e-05   0.0001   0.0001  **pooled+perRQ
+RQ7 (random orthonormal)            ET  large     23  0.1488  0.1243  -0.0245   [-0.0360,-0.0146]  -0.928  1.03e-05   0.0000   0.0000  **pooled+perRQ
+RQ7 (random orthonormal)            TC  small     27  0.0192  0.0172  -0.0020   [-0.0037,-0.0004]  -0.507  2.99e-02   0.0370   0.0371  **pooled+perRQ
+RQ7 (random orthonormal)            TC  medium    23  0.0590  0.0504  -0.0085   [-0.0114,-0.0058]  -0.906  2.10e-05   0.0000   0.0000  **pooled+perRQ
+RQ7 (random orthonormal)            TC  large     23  0.1756  0.1727  -0.0029   [-0.0104,+0.0051]  -0.178  4.65e-01   0.4791   0.4925  
+RQ7 (random orthonormal)            WT  small     32  0.0568  0.0475  -0.0093   [-0.0121,-0.0066]  -0.948  4.12e-06   0.0000   0.0000  **pooled+perRQ
+RQ7 (random orthonormal)            WT  medium    21  0.1367  0.1099  -0.0268   [-0.0363,-0.0189]  -0.991  1.91e-06   0.0000   0.0000  **pooled+perRQ
+RQ7 (random orthonormal)            WT  large     20  0.2809  0.2311  -0.0497   [-0.0653,-0.0336]  -0.905  8.20e-05   0.0001   0.0002  **pooled+perRQ
+RQ7 (random, PubMedBERT geometry)   ET  small     21  0.0100  0.0080  -0.0019   [-0.0035,-0.0005]  -0.619  1.52e-02   0.0197   0.0211  **pooled+perRQ
+RQ7 (random, PubMedBERT geometry)   ET  medium    23  0.0374  0.0363  -0.0012   [-0.0070,+0.0044]  -0.091  7.09e-01   0.7131   0.7089  
+RQ7 (random, PubMedBERT geometry)   ET  large     23  0.1488  0.1464  -0.0025   [-0.0157,+0.0128]  -0.221  3.75e-01   0.3988   0.4224  
+RQ7 (random, PubMedBERT geometry)   TC  small     27  0.0192  0.0202  +0.0011   [-0.0007,+0.0029]  +0.111  6.20e-01   0.6315   0.6381  
+RQ7 (random, PubMedBERT geometry)   TC  medium    23  0.0590  0.0628  +0.0039   [+0.0008,+0.0071]  +0.536  2.33e-02   0.0293   0.0311  **pooled+perRQ
+RQ7 (random, PubMedBERT geometry)   TC  large     23  0.1756  0.1955  +0.0199   [+0.0100,+0.0301]  +0.768  6.39e-04   0.0010   0.0011  **pooled+perRQ
+RQ7 (random, PubMedBERT geometry)   WT  small     32  0.0568  0.0482  -0.0086   [-0.0120,-0.0055]  -0.875  1.50e-06   0.0000   0.0000  **pooled+perRQ
+RQ7 (random, PubMedBERT geometry)   WT  medium    21  0.1367  0.1118  -0.0249   [-0.0368,-0.0144]  -0.896  6.68e-05   0.0001   0.0001  **pooled+perRQ
+RQ7 (random, PubMedBERT geometry)   WT  large     20  0.2809  0.2220  -0.0589   [-0.0735,-0.0455]  -1.000  1.91e-06   0.0000   0.0000  **pooled+perRQ
+RQ8 (negated text)                  ET  small     21  0.0100  0.0074  -0.0026   [-0.0050,-0.0005]  -0.506  4.21e-02   0.0500   0.0459  **pooled+perRQ
+RQ8 (negated text)                  ET  medium    23  0.0374  0.0249  -0.0125   [-0.0190,-0.0069]  -0.819  2.15e-04   0.0003   0.0003  **pooled+perRQ
+RQ8 (negated text)                  ET  large     23  0.1488  0.1064  -0.0424   [-0.0747,-0.0174]  -0.768  6.39e-04   0.0010   0.0008  **pooled+perRQ
+RQ8 (negated text)                  TC  small     27  0.0192  0.0158  -0.0034   [-0.0057,-0.0016]  -0.788  1.25e-04   0.0002   0.0002  **pooled+perRQ
+RQ8 (negated text)                  TC  medium    23  0.0590  0.0494  -0.0096   [-0.0130,-0.0063]  -0.913  1.67e-05   0.0000   0.0000  **pooled+perRQ
+RQ8 (negated text)                  TC  large     23  0.1756  0.1445  -0.0311   [-0.0453,-0.0191]  -0.978  1.19e-06   0.0000   0.0000  **pooled+perRQ
+RQ8 (negated text)                  WT  small     32  0.0568  0.0418  -0.0150   [-0.0189,-0.0114]  -1.000  4.66e-10   0.0000   0.0000  **pooled+perRQ
+RQ8 (negated text)                  WT  medium    21  0.1367  0.0924  -0.0443   [-0.0559,-0.0331]  -1.000  9.54e-07   0.0000   0.0000  **pooled+perRQ
+RQ8 (negated text)                  WT  large     20  0.2809  0.1749  -0.1060   [-0.1211,-0.0901]  -1.000  1.91e-06   0.0000   0.0000  **pooled+perRQ
+RQ8 (shuffled word order)           ET  small     21  0.0100  0.0079  -0.0020   [-0.0031,-0.0011]  -1.000  9.54e-07   0.0000   0.0000  **pooled+perRQ
+RQ8 (shuffled word order)           ET  medium    23  0.0374  0.0294  -0.0081   [-0.0131,-0.0048]  -0.993  4.77e-07   0.0000   0.0000  **pooled+perRQ
+RQ8 (shuffled word order)           ET  large     23  0.1488  0.1257  -0.0232   [-0.0313,-0.0154]  -0.993  4.77e-07   0.0000   0.0000  **pooled+perRQ
+RQ8 (shuffled word order)           TC  small     27  0.0192  0.0177  -0.0015   [-0.0021,-0.0009]  -0.899  4.57e-06   0.0000   0.0000  **pooled+perRQ
+RQ8 (shuffled word order)           TC  medium    23  0.0590  0.0540  -0.0050   [-0.0068,-0.0033]  -0.992  4.61e-05   0.0001   0.0001  **pooled+perRQ
+RQ8 (shuffled word order)           TC  large     23  0.1756  0.1606  -0.0149   [-0.0220,-0.0086]  -1.000  8.86e-05   0.0002   0.0001  **pooled+perRQ
+RQ8 (shuffled word order)           WT  small     32  0.0568  0.0558  -0.0010   [-0.0017,-0.0003]  -0.618  5.86e-03   0.0082   0.0066  **pooled+perRQ
+RQ8 (shuffled word order)           WT  medium    21  0.1367  0.1350  -0.0017   [-0.0041,+0.0004]  -0.298  2.67e-01   0.2887   0.2744  
+RQ8 (shuffled word order)           WT  large     20  0.2809  0.2809  -0.0000   [-0.0029,+0.0029]  -0.059  8.36e-01   0.8361   0.8361  
+RQ8 (swapped referent)              ET  small     21  0.0100  0.0079  -0.0020   [-0.0030,-0.0012]  -1.000  9.54e-07   0.0000   0.0000  **pooled+perRQ
+RQ8 (swapped referent)              ET  medium    23  0.0374  0.0279  -0.0095   [-0.0144,-0.0063]  -1.000  2.38e-07   0.0000   0.0000  **pooled+perRQ
+RQ8 (swapped referent)              ET  large     23  0.1488  0.1140  -0.0349   [-0.0461,-0.0247]  -1.000  2.38e-07   0.0000   0.0000  **pooled+perRQ
+RQ8 (swapped referent)              TC  small     27  0.0192  0.0171  -0.0021   [-0.0029,-0.0013]  -1.000  1.49e-08   0.0000   0.0000  **pooled+perRQ
+RQ8 (swapped referent)              TC  medium    23  0.0590  0.0531  -0.0058   [-0.0078,-0.0041]  -1.000  4.01e-05   0.0001   0.0001  **pooled+perRQ
+RQ8 (swapped referent)              TC  large     23  0.1756  0.1565  -0.0191   [-0.0276,-0.0117]  -1.000  2.38e-07   0.0000   0.0000  **pooled+perRQ
+RQ8 (swapped referent)              WT  small     32  0.0568  0.0700  +0.0132   [+0.0104,+0.0161]  +0.989  2.33e-09   0.0000   0.0000  **pooled+perRQ
+RQ8 (swapped referent)              WT  medium    21  0.1367  0.1656  +0.0289   [+0.0195,+0.0396]  +0.983  2.86e-06   0.0000   0.0000  **pooled+perRQ
+RQ8 (swapped referent)              WT  large     20  0.2809  0.3488  +0.0679   [+0.0448,+0.0925]  +0.943  2.67e-05   0.0001   0.0000  **pooled+perRQ
+RQ8 (generic filler)                ET  small     21  0.0100  0.0072  -0.0028   [-0.0040,-0.0016]  -1.000  9.54e-07   0.0000   0.0000  **pooled+perRQ
+RQ8 (generic filler)                ET  medium    23  0.0374  0.0267  -0.0107   [-0.0163,-0.0070]  -1.000  2.38e-07   0.0000   0.0000  **pooled+perRQ
+RQ8 (generic filler)                ET  large     23  0.1488  0.1096  -0.0393   [-0.0522,-0.0276]  -0.993  4.77e-07   0.0000   0.0000  **pooled+perRQ
+RQ8 (generic filler)                TC  small     27  0.0192  0.0172  -0.0020   [-0.0031,-0.0010]  -0.815  6.33e-05   0.0001   0.0001  **pooled+perRQ
+RQ8 (generic filler)                TC  medium    23  0.0590  0.0552  -0.0038   [-0.0063,-0.0015]  -0.710  1.88e-03   0.0028   0.0022  **pooled+perRQ
+RQ8 (generic filler)                TC  large     23  0.1756  0.1706  -0.0050   [-0.0123,+0.0019]  -0.281  2.49e-01   0.2713   0.2638  
+RQ8 (generic filler)                WT  small     32  0.0568  0.0638  +0.0070   [+0.0046,+0.0094]  +0.886  9.48e-07   0.0000   0.0000  **pooled+perRQ
+RQ8 (generic filler)                WT  medium    21  0.1367  0.1516  +0.0149   [+0.0098,+0.0203]  +0.922  3.15e-05   0.0001   0.0001  **pooled+perRQ
+RQ8 (generic filler)                WT  large     20  0.2809  0.3157  +0.0348   [+0.0196,+0.0507]  +0.876  1.68e-04   0.0003   0.0002  **pooled+perRQ
+RQ12 (8^3 window, pct99)            ET  small     21  0.0100  0.0381  +0.0281   [+0.0174,+0.0392]  +0.939  1.81e-05   0.0000   0.0000  **pooled+perRQ
+RQ12 (8^3 window, pct99)            ET  medium    23  0.0374  0.1506  +0.1132   [+0.0958,+0.1329]  +1.000  2.38e-07   0.0000   0.0000  **pooled+perRQ
+RQ12 (8^3 window, pct99)            ET  large     23  0.1488  0.3811  +0.2322   [+0.2039,+0.2604]  +1.000  2.38e-07   0.0000   0.0000  **pooled+perRQ
+RQ12 (8^3 window, pct99)            TC  small     27  0.0192  0.0607  +0.0415   [+0.0264,+0.0576]  +0.899  4.57e-06   0.0000   0.0000  **pooled+perRQ
+RQ12 (8^3 window, pct99)            TC  medium    23  0.0590  0.1820  +0.1231   [+0.0741,+0.1765]  +0.899  2.62e-05   0.0001   0.0000  **pooled+perRQ
+RQ12 (8^3 window, pct99)            TC  large     23  0.1756  0.2797  +0.1042   [+0.0414,+0.1682]  +0.630  6.71e-03   0.0093   0.0081  **pooled+perRQ
+RQ12 (8^3 window, pct99)            WT  small     32  0.0568  0.3180  +0.2611   [+0.2194,+0.3053]  +1.000  4.66e-10   0.0000   0.0000  **pooled+perRQ
+RQ12 (8^3 window, pct99)            WT  medium    21  0.1367  0.4586  +0.3219   [+0.2776,+0.3663]  +1.000  9.54e-07   0.0000   0.0000  **pooled+perRQ
+RQ12 (8^3 window, pct99)            WT  large     20  0.2809  0.4872  +0.2063   [+0.1655,+0.2466]  +0.990  3.81e-06   0.0000   0.0000  **pooled+perRQ
+RQ12 (8^3 window, oracle)           ET  small     21  0.0100  0.0616  +0.0516   [+0.0244,+0.0818]  +0.524  3.51e-02   0.0428   0.0371  **pooled+perRQ
+RQ12 (8^3 window, oracle)           ET  medium    23  0.0374  0.1751  +0.1376   [+0.0966,+0.1753]  +0.942  5.96e-06   0.0000   0.0000  **pooled+perRQ
+RQ12 (8^3 window, oracle)           ET  large     23  0.1488  0.4022  +0.2534   [+0.2134,+0.2949]  +1.000  2.38e-07   0.0000   0.0000  **pooled+perRQ
+RQ12 (8^3 window, oracle)           TC  small     27  0.0192  0.0086  -0.0106   [-0.0200,+0.0026]  -0.767  2.09e-04   0.0003   0.0003  **pooled+perRQ
+RQ12 (8^3 window, oracle)           TC  medium    23  0.0590  0.1208  +0.0618   [-0.0090,+0.1475]  +0.181  4.63e-01   0.4791   0.4634  
+RQ12 (8^3 window, oracle)           TC  large     23  0.1756  0.2730  +0.0975   [+0.0295,+0.1680]  +0.536  2.33e-02   0.0293   0.0262  **pooled+perRQ
+RQ12 (8^3 window, oracle)           WT  small     32  0.0568  0.3156  +0.2587   [+0.2113,+0.3071]  +1.000  4.66e-10   0.0000   0.0000  **pooled+perRQ
+RQ12 (8^3 window, oracle)           WT  medium    21  0.1367  0.4680  +0.3313   [+0.2848,+0.3775]  +1.000  9.54e-07   0.0000   0.0000  **pooled+perRQ
+RQ12 (8^3 window, oracle)           WT  large     20  0.2809  0.6353  +0.3544   [+0.3233,+0.3869]  +1.000  1.91e-06   0.0000   0.0000  **pooled+perRQ
+------------------------------------------------------------------------------------------------------------------------------------
+Significant at raw p<0.05:                      145/171
+Significant after BH, one pooled family:        144/171
+Significant after BH, per-research-question:    144/171
+
+The pooled family is the more conservative choice and is what the report currently uses.
+Note its awkward property: adding RQ7 enlarges the family and can retroactively demote a
+previously-significant RQ3b/RQ3c result. Any such change is listed below, explicitly.
+
+=== Tests significant at raw p<0.05 but NOT after pooled BH correction ===
+  RQ3b (16^3 window)                   ET   large    p=0.0484 q_pooled=0.0571
+
+=== Statistically significant but negligible in magnitude (|delta| < 0.01 Dice) ===
+(real but clinically meaningless effects -- worth separating from substantive ones)
+  RQ2 (size-conditioned text)          ET   small    delta=-0.0021 q=0.0135
+  RQ2 (size-conditioned text)          TC   small    delta=+0.0077 q=0.0000
+  RQ2 (size-conditioned text)          WT   small    delta=+0.0025 q=0.0215
+  RQ3 (multi-scale ensemble)           WT   small    delta=+0.0072 q=0.0400
+  RQ3b (16^3 window)                   ET   small    delta=+0.0011 q=0.0463
+  RQ3b (16^3 window)                   ET   medium   delta=+0.0019 q=0.0463
+  RQ3b (16^3 window)                   TC   small    delta=+0.0038 q=0.0000
+  RQ3b (16^3 window)                   TC   medium   delta=+0.0099 q=0.0000
+  RQ3c (12^3 window)                   ET   small    delta=+0.0016 q=0.0149
+  RQ3c (12^3 window)                   ET   medium   delta=+0.0028 q=0.0113
+  RQ3c (12^3 window)                   TC   small    delta=+0.0043 q=0.0000
+  RQ3c (8^3 window)                    ET   small    delta=+0.0033 q=0.0008
+  RQ3c (8^3 window)                    TC   small    delta=+0.0095 q=0.0000
+  RQ3c (6^3 window)                    ET   small    delta=+0.0032 q=0.0002
+  RQ3c (6^3 window)                    TC   small    delta=+0.0093 q=0.0000
+  RQ4 (scale-matched)                  ET   small    delta=-0.0051 q=0.0000
+  RQ4 (scale-matched)                  TC   small    delta=-0.0068 q=0.0000
+  RQ4 (scale-matched)                  WT   small    delta=-0.0092 q=0.0000
+  RQ6 (uniformity fix)                 ET   small    delta=-0.0045 q=0.0000
+  RQ6 (uniformity fix)                 TC   small    delta=-0.0029 q=0.0138
+  RQ7 (BERT-base)                      ET   small    delta=+0.0014 q=0.0121
+  RQ7 (BERT-base)                      TC   small    delta=+0.0025 q=0.0350
+  RQ7 (random-init BERT)               ET   small    delta=+0.0057 q=0.0036
+  RQ7 (random orthonormal)             ET   small    delta=-0.0018 q=0.0121
+  RQ7 (random orthonormal)             ET   medium   delta=-0.0088 q=0.0001
+  RQ7 (random orthonormal)             TC   small    delta=-0.0020 q=0.0370
+  RQ7 (random orthonormal)             TC   medium   delta=-0.0085 q=0.0000
+  RQ7 (random orthonormal)             WT   small    delta=-0.0093 q=0.0000
+  RQ7 (random, PubMedBERT geometry)    ET   small    delta=-0.0019 q=0.0197
+  RQ7 (random, PubMedBERT geometry)    TC   medium   delta=+0.0039 q=0.0293
+  RQ7 (random, PubMedBERT geometry)    WT   small    delta=-0.0086 q=0.0000
+  RQ8 (negated text)                   ET   small    delta=-0.0026 q=0.0500
+  RQ8 (negated text)                   TC   small    delta=-0.0034 q=0.0002
+  RQ8 (negated text)                   TC   medium   delta=-0.0096 q=0.0000
+  RQ8 (shuffled word order)            ET   small    delta=-0.0020 q=0.0000
+  RQ8 (shuffled word order)            ET   medium   delta=-0.0081 q=0.0000
+  RQ8 (shuffled word order)            TC   small    delta=-0.0015 q=0.0000
+  RQ8 (shuffled word order)            TC   medium   delta=-0.0050 q=0.0001
+  RQ8 (shuffled word order)            WT   small    delta=-0.0010 q=0.0082
+  RQ8 (swapped referent)               ET   small    delta=-0.0020 q=0.0000
+  RQ8 (swapped referent)               ET   medium   delta=-0.0095 q=0.0000
+  RQ8 (swapped referent)               TC   small    delta=-0.0021 q=0.0000
+  RQ8 (swapped referent)               TC   medium   delta=-0.0058 q=0.0001
+  RQ8 (generic filler)                 ET   small    delta=-0.0028 q=0.0000
+  RQ8 (generic filler)                 TC   small    delta=-0.0020 q=0.0001
+  RQ8 (generic filler)                 TC   medium   delta=-0.0038 q=0.0028
+  RQ8 (generic filler)                 WT   small    delta=+0.0070 q=0.0000
+
+Saved machine-readable statistics to /net/projects/ranalab/rajhansini/nlp_project/results/full_family_statistics.csv

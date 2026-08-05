@@ -57,6 +57,20 @@ SUBREGION_DESCRIPTIONS_NATURALISTIC = {
 
 
 def embed_naturalistic_descriptions(tokenizer, model, device="cpu"):
+    """Embed the RQ5 naturalistic, radiology-report-style region descriptions.
+
+    These replace the templated textbook phrasing with hedged, syntactically varied language of the
+    kind a radiologist would actually dictate, to test whether the project's findings are an artifact
+    of template phrasing.
+
+    Args:
+        tokenizer: the PubMedBERT tokenizer.
+        model: the frozen PubMedBERT encoder.
+        device: torch device string.
+
+    Returns:
+        dict mapping region -> mean-pooled sentence embedding tensor.
+    """
     embeddings = {}
     for region, texts in SUBREGION_DESCRIPTIONS_NATURALISTIC.items():
         emb = embed_texts(texts, tokenizer, model, device)
@@ -120,6 +134,14 @@ def embed_size_conditioned_descriptions(tokenizer, model, device="cpu"):
 
 
 def load_text_encoder(device="cpu"):
+    """Load the frozen PubMedBERT tokenizer and encoder.
+
+    Args:
+        device: torch device string to place the model on.
+
+    Returns:
+        (tokenizer, model) with the model in eval mode.
+    """
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     model = AutoModel.from_pretrained(MODEL_NAME).to(device).eval()
     return tokenizer, model

@@ -32,6 +32,12 @@ def make_noise_patch(crop_size, device):
 
 
 def main():
+    """Feed pure noise through RQ4's three resize pipelines to test for shortcut learning.
+
+    If the model still assigns systematically different text-similarity scores to inputs containing
+    zero tumor content, its apparent size-conditioning is reading resize-interpolation artifacts rather
+    than anatomy. This is a direct test, not an inference from the localization numbers.
+    """
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print("device:", device)
 

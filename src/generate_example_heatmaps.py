@@ -21,6 +21,7 @@ EXAMPLE_PATIENTS = {
 
 
 def main():
+    """Recompute and cache the two example heatmaps used by the qualitative overlay figure."""
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print("device:", device)
 

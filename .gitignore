@@ -4,8 +4,9 @@ data/
 # Trained model weights (see README for how to regenerate)
 checkpoints/
 
-# SLURM job stdout logs
-logs/
+# SLURM job stdout logs (raw .out files); curated analysis summaries are kept, see below
+logs/*
+!logs/*_analysis.txt
 
 # Python
 __pycache__/

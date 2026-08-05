@@ -1,10 +1,23 @@
-# Quantifying Small-Lesion Grounding Failure in Text-Conditioned 3D Medical Localization
+# Architecture, Not Language: Diagnosing Small-Lesion Grounding Failure in Text-Conditioned 3D Medical Localization
 
-*Draft sections for MPCS 53113 final report. Technical sections are grounded directly in the pipeline built this session. Sections marked [FILL IN] need your personal input — I can't fabricate those honestly.*
+**MPCS 53113 Natural Language Processing — Final Report**
+University of Chicago
+
+Source code: [https://github.com/rajhansini/Diagnosing-Small-Lesion-Grounding-Failure-in-Text-Conditioned-3D-Medical-Localization](https://github.com/rajhansini/Diagnosing-Small-Lesion-Grounding-Failure-in-Text-Conditioned-3D-Medical-Localization)
 
 ## Abstract
 
-Recent 3D medical vision-language models can detect the presence of a pathological finding from text but frequently fail to precisely localize it when the finding is small, instead defaulting to imprecise, oversized regions. This degradation has been noted qualitatively in recent literature but not rigorously quantified as a function of lesion size on volumetric data. We build a text-conditioned contrastive localization pipeline aligning PubMedBERT sentence embeddings with 3D ResNet patch embeddings on BraTS2020 brain tumor MRI, and measure localization quality (Dice/IoU) stratified by true lesion volume across three tumor subregions (enhancing tumor, tumor core, whole tumor). We confirm a severe, consistent small-lesion grounding failure (5-15x Dice degradation from large to small lesions across all three regions), and — using a chance-level random-heatmap control — show this holds beyond what Dice's known geometric bias toward large structures alone would predict. This core pattern replicates exactly (9 of 9 region×bin comparisons) across two additional independent train/val splits, so it is not an artifact of one particular split. We then run a series of ablation studies to test whether the failure can be mitigated. Size-conditioned text prompting, with a multi-scale query ensemble at inference time, improves medium/large-lesion localization substantially but does **not** meaningfully help small lesions, and significantly *worsens* small-lesion localization for the hardest subregion (enhancing tumor) — indicating the bottleneck is architectural (fixed-scale patch windowing) rather than linguistic. We test that explanation directly: naive multi-scale ensembling at inference time mostly hurts (one of nine region/size bins improves, five get significantly worse), but isolating a single smaller window (16³ instead of 32³, no retraining, ~10x more forward passes) produces a statistically significant improvement in all nine region×size-bin combinations at raw p<0.05 — though after Benjamini-Hochberg correction across our full family of statistical tests, only six of nine (tumor core and whole tumor, all bins) survive at this window size; the enhancing-tumor region, the smallest and clinically hardest, does not. Pushing the window smaller still (12³, then 8³) shows the trend continuing with no plateau, and, notably, the enhancing-tumor region's statistical picture improves as the window shrinks further, clearing full-family-corrected significance in all bins at 8³. Pushed one step further to 6³, the trend plateaus for enhancing tumor and tumor core specifically (no significant change from 8³ in any of their 6 combined bins), while whole tumor — the largest of the three regions — keeps improving significantly throughout, showing the smaller-window benefit has a floor, and it is not the same floor for every region. Retraining with scale-matched patches reaches better classification accuracy than the original mitigation (0.668 vs. 0.552) but produces significantly worse localization everywhere (verified against both the baseline and the original mitigation, all p<0.0001). We confirm why directly, rather than speculating: feeding pure random noise through the same resize pipelines used in training produces near-total, statistically extreme separation in the model's text-similarity scores (ANOVA p≈4×10⁻²⁵¹) despite zero real tumor content — though the specific pattern is a generic bias toward the "large" class rather than clean per-scale artifact recognition. Attempting to directly repair that embedding hub with a uniformity regularizer separates the classes' embeddings and fixes 2 of 3 shortcut behaviors confirmed by the same noise probe, and improves localization over the scale-matched model in all 9 region×size-bin combinations — but still falls short of the plain baseline in most of them, meaning the simplest fix found in this project (the isolated smaller window, with no retraining at all) remains the best-performing intervention overall. Finally, replacing templated text with naturalistic radiology-report-style language reproduces the original finding almost exactly, confirming it is not a templating artifact.
+Recent 3D medical vision-language models can detect *that* a pathological finding is present but often fail to say *where* when the finding is small, defaulting to oversized, imprecise regions. This has been reported qualitatively but not quantified as a function of lesion size on volumetric data. We build a text-conditioned contrastive localization pipeline — PubMedBERT sentence embeddings aligned with 3D ResNet-10 patch embeddings on BraTS2020 brain MRI — and measure Dice stratified by true lesion volume across three tumor subregions, running twelve controlled experiments and 171 FDR-corrected paired tests.
+
+**The failure is real and specific.** Localization collapses monotonically with lesion size (5–15× Dice degradation, large to small), survives a chance-level control, and replicates in 9 of 9 region×bin comparisons across three independent splits. To rule out the deflationary reading that small lesions are simply hard here, we train a conventional supervised U-Net on the identical data, split and metric: it reaches published BraTS Dice (ET 0.758, TC 0.812, WT 0.851) and degrades by only 1.2–1.3× large-to-small. Small lesions are learnable on this data; text-conditioned grounding is what fails on them.
+
+**Roughly half the measured collapse was a metric artifact.** Decomposing the pipeline shows the unsupervised Otsu threshold over-predicts lesion volume by 6–223× and is *anti*-correlated with true size (ρ = −0.26 to −0.48), mechanically inflating the effect. Under an oracle-volume threshold the large/small ratio falls from 15.0/9.2/4.9 to 14.4/5.6/2.4. A threshold-free pointing game localizes what remains: chance-corrected accuracy is roughly uniform at 46–122× chance everywhere, with one stark exception — for small enhancing tumor the peak response lands inside the lesion in **0 of 21 patients**, exactly chance.
+
+**The language pathway contributes almost nothing.** Replacing PubMedBERT with general-domain BERT, with a randomly initialized never-trained BERT, or with random vectors carrying no language at all produces effects that change sign across training runs — indistinguishable from the 0.0044 Dice noise floor of simply retraining the baseline. Only discarding PubMedBERT's anisotropic embedding *geometry* reliably hurts (−0.0087, consistent across three seeds). Probing the trained model directly, negating the query, destroying its word order, swapping its anatomical referent, or replacing it with contentless filler all leave the projected embedding above 0.94 cosine to the original and the heatmap at ρ = 0.56–1.00; for whole tumor, generic filler and a wrong-region term both *outperform* the true clinical description. The query functions as an opaque class identifier that happens to be spelled in English.
+
+**No intervention fixed the failure, and the one that appeared to was a threshold artifact.** Size-conditioned prompting, multi-scale ensembling, scale-matched retraining (which a noise probe shows learned resize-interpolation shortcuts, ANOVA p≈4×10⁻²⁵¹) and a uniformity regularizer all fail to beat the plain baseline. Evaluating the frozen model at a smaller query window appeared to win decisively — until re-scored under better binarizers, where its +0.044 Dice advantage inverts to −0.039 (deployable top-1%) and −0.043 (oracle). It does, however, genuinely improve *pointing* accuracy for enhancing tumor in every size bin, lifting the previously-at-chance small-ET bin to 309× chance.
+
+The durable contribution is therefore methodological: a set of controls — chance baselines, noise probes, cross-seed replication at the level of the training run, pipeline decomposition, metric triangulation and metric well-definedness — that between them overturned four conclusions this work had already written down as findings.
 
 ## 1. Introduction
 
@@ -63,12 +76,75 @@ Split: 296 train / 73 held-out validation patients (80/20, fixed seed).
 
 ![Pipeline schematic: contrastive text-volume alignment at training time (left/center), and sliding-window heatmap extraction at inference time (right).](figures/fig_architecture.png){width=95%}
 
+### 5.1 Techniques used, and how they work
+
+Several methods this project relies on were not covered in class. Each is summarized here, with a reference to a fuller description.
+
+**Contrastive alignment with a temperature-scaled softmax (InfoNCE).** Image and text embeddings are L2-normalized and projected into a shared space; the cosine similarity between an image embedding and each of the $K$ class text embeddings forms a logit vector, divided by a temperature $\tau$ (here 0.07) and passed through softmax cross-entropy against the true class:
+$$\mathcal{L} = -\log \frac{\exp(\text{sim}(v, t_{y})/\tau)}{\sum_{k=1}^{K}\exp(\text{sim}(v, t_{k})/\tau)}$$
+Low $\tau$ sharpens the distribution, penalizing near-misses heavily and pushing classes apart. This is the CLIP/InfoNCE objective (Oord et al., 2018; Radford et al., 2021) with the text side acting as a fixed set of class prototypes rather than as in-batch negatives.
+
+**Otsu's method** (Otsu, 1979). An unsupervised way to pick a binarization threshold from a single image's intensity histogram. It considers every candidate cut point and selects the one maximizing the variance *between* the two resulting groups — equivalently minimizing variance within them. We chose it precisely because it never sees ground truth, so it cannot leak test-time information into Dice. Section 6.3 quantifies what that choice cost.
+
+**The uniformity regularizer** (Wang & Isola, 2020). Wang and Isola showed contrastive representation quality decomposes into *alignment* (matched pairs are close) and *uniformity* (embeddings spread over the hypersphere rather than collapsing). RQ4 produced exactly a uniformity failure — the class embeddings collapsed into a hub. RQ6 adds a penalty on high pairwise cosine similarity among projected class embeddings to push them apart.
+
+**The pointing game** (Zhang et al., 2018). A localization metric from weakly-supervised grounding: take the single highest-response location in a saliency map and ask whether it falls inside the ground-truth region. Unlike Dice it is threshold-free and carries no geometric penalty against small targets, so it separates "did the model point at the lesion" from "did it draw the right boundary." Its chance level still scales with target size, so we always report lift over a per-bin chance baseline rather than the raw hit rate.
+
+**Wilcoxon signed-rank test** (Wilcoxon, 1945). A non-parametric paired test. Because each patient is scored under both conditions, comparisons are paired; and because per-patient Dice is bounded, skewed, and frequently near zero for small lesions, a paired *t*-test's normality assumption is not safe. Wilcoxon ranks the absolute paired differences and tests whether positive and negative ranks are balanced.
+
+**Benjamini-Hochberg FDR correction** (Benjamini & Hochberg, 1995). With 171 accumulated tests at α=0.05, roughly nine "significant" results would be expected from noise alone. BH sorts the $m$ p-values ascending and rejects the largest $i$ for which $p_{(i)} \le \frac{i}{m}\alpha$, controlling the expected *proportion* of false discoveries among rejections. It is less conservative than Bonferroni, which is appropriate here because these tests are positively correlated (they share a baseline arm).
+
+**Matched-pairs rank-biserial correlation and bootstrap intervals.** Effect size for Wilcoxon, ranging from −1 to +1. Reported alongside every p-value because with n=20–32 per bin a result can be significant yet negligible; Section 7 flags such cases explicitly. Confidence intervals on mean paired differences use a percentile bootstrap (10,000 resamples, seeded) rather than a normal-theory interval, for the same distributional reason Wilcoxon is used.
+
+### 5.2 Code components
+
+All code was written for this project; see [`src/README.md`](src/README.md) for a file-by-file listing with line counts. The major components:
+
+| Component | Files | Role |
+|---|---|---|
+| **Data pipeline** | `preprocess.py`, `text_encoder.py` | NIfTI loading, per-modality z-scoring inside the brain mask, resampling to 128³, true native-resolution lesion volumes for size binning; PubMedBERT embedding of all text variants. |
+| **Datasets** | `dataset.py`, `dataset_rq2.py`, `dataset_rq4.py`, `dataset_pprime.py` | Patch samplers for each experimental condition (region-labeled, size-conditioned, scale-matched) plus the full-volume segmentation loader for P′. `region_mask()` here is the single definition of ET/TC/WT used everywhere. |
+| **Model** | `model.py` | `TextVolumeAligner`: MONAI 3D ResNet-10 volume encoder plus a linear text projection into a shared 256-d L2-normalized space. |
+| **Localization** | `localize.py` | `sliding_window_heatmap()`: sweeps the encoder across the volume, accumulating per-voxel cosine similarity to a query. Supports querying at a different physical window size than the model was trained at, which is what makes the whole RQ3/RQ3b/RQ3c/RQ12 window sweep possible without retraining. |
+| **Training** | `train_baseline.py`, `train_rq2/4/5/6/7.py`, `train_pprime_supervised.py` | One script per experimental arm, each taking `--seed` to control the train/val split for cross-seed replication. |
+| **Evaluation** | `evaluate_rq1.py` and 10 siblings | `evaluate_rq1.py` defines `otsu_threshold()`, `dice_iou()` and `size_bin()`, which every other evaluation — including the supervised P′ — imports, so all arms are scored by literally the same code. |
+| **Diagnostics** | `test_rq4_shortcut_hypothesis.py`, `test_rq6_hub_bias.py`, `compute_chance_baseline.py`, `sanity_check_localize.py` | Noise probes, chance-level control, and the pre-flight check that the heatmap scores higher inside the true region than outside. |
+| **Analysis** | `analyze_full_family.py`, `analyze_seed_replication.py`, `analyze_rq7_multiseed.py`, and 5 others | Recompute every statistic directly from the saved per-patient CSVs, so no number in this report is transcribed by hand. |
+| **Figures** | 9 `make_figure*.py` scripts | Every figure regenerates from the result CSVs. |
+
+Two recurring design decisions are worth naming. First, **evaluation scripts import their metric definitions rather than redefining them**, which is what makes cross-experiment comparison meaningful. Second, **several scripts carry a built-in correctness gate**: `evaluate_rq8_compositionality.py` asserts its "original" condition reproduces RQ1's CSV exactly, and `evaluate_grounding_sweep.py` at window 32 must reproduce RQ11's — both caught real bugs during development.
+
 ## 6. Core Result: Size-Stratified Localization Failure
 
-**Note on multiple comparisons.** Sections 6 and 7 together report many paired significance tests (accumulating to 96 by the end of Section 7, region × size-bin × comparison). At uncorrected α=0.05, that volume of testing would be expected to produce a small number of spurious "significant" results by chance alone. We therefore apply Benjamini-Hochberg FDR correction across the full accumulated family of tests and report both the raw p-value and BH-adjusted q-value wherever a specific claim rests on statistical significance; any result that is significant raw but does not survive correction is explicitly flagged as such rather than presented as a finding.
+**Note on multiple comparisons.** Sections 6 and 7 together report many paired significance tests (171 in total by the end of Section 7: region × size-bin × comparison, across 8 research questions). At uncorrected α=0.05, that volume of testing would be expected to produce a small number of spurious "significant" results by chance alone. We therefore apply Benjamini-Hochberg FDR correction across the full accumulated family of tests and report both the raw p-value and BH-adjusted q-value wherever a specific claim rests on statistical significance; any result that is significant raw but does not survive correction is explicitly flagged as such rather than presented as a finding.
 
-### 6.1 P′ baseline validation (contrastive alignment)
-Full run, 296 train / 73 val patients, 30 epochs: validation accuracy on the 4-way ET/TC/WT/NONE classification rose from 0.51 → peak 0.671 (epoch 26), finishing at 0.626. Chance level is 0.25. This confirms the pipeline learns a genuine, non-trivial text-volume alignment signal — our reproducibility checkpoint passes.
+### 6.1 P′: validating the pipeline against a previously-studied problem
+
+Every result in this report is produced by one pipeline — our preprocessing, our split, our `dice_iou()`, our size terciles. If any of those carried a bug, "small lesions localize badly" would be unfalsifiable from the inside: we would have no way to distinguish a real grounding failure from, say, a misaligned mask or a broken metric. Two checks address this, an internal one and an external one.
+
+**Internal: does the alignment learn anything?** Full run, 296 train / 73 val patients, 30 epochs: validation accuracy on the 4-way ET/TC/WT/NONE classification rose from 0.51 to a peak of 0.671 (epoch 26), finishing at 0.626, against a chance level of 0.25. The pipeline learns a genuine, non-trivial text-volume alignment signal.
+
+**External (P′): does the same machinery reproduce published results on a problem someone else has already solved?** That problem is supervised BraTS tumor segmentation, scored publicly by the MICCAI challenge since 2012. We trained a plain 3D U-Net (Ronneberger et al., 2015) reusing, unchanged, the same preprocessed volumes, the same seed-0 split, the same `region_mask()` definitions and the same `dice_iou()` — changing only the model and the supervision signal.
+
+| Region | P′ Dice (ours) | Published BraTS2020 range | In range? |
+|---|---|---|---|
+| ET | 0.758 | 0.70 – 0.80 | yes |
+| TC | 0.812 | 0.80 – 0.87 | yes |
+| WT | 0.851 | 0.86 – 0.89 | 0.009 below |
+
+Two of three regions land inside the published range and the third is 0.009 short of it, which is what a single small U-Net on 128³ resampled volumes should look like against leaderboard entries that use native resolution, ensembling and test-time augmentation. **The shared machinery is therefore sound, and the low absolute Dice in Sections 6.2–7 is a property of text-conditioned localization rather than a defect in the plumbing underneath it.**
+
+**P′ also answers a question no text-conditioned arm could.** Because it is scored by the identical size terciles, its large/small ratio is directly comparable to RQ1's — which separates "text-conditioned grounding fails on small lesions" from "small lesions are simply hard for everything on this data."
+
+| Region | P′ supervised L/S | RQ1 text-conditioned L/S (Otsu) | RQ1 (oracle threshold) |
+|---|---|---|---|
+| ET | **1.3×** | 15.0× | 14.4× |
+| TC | **1.3×** | 9.2× | 5.6× |
+| WT | **1.2×** | 4.9× | 2.4× |
+
+A fully supervised model on this exact data barely degrades at all: 0.636 → 0.858 Dice across ET's size range, against the text-conditioned model's 0.010 → 0.149. **Small lesions are not intrinsically unlearnable here, and Dice's geometric size penalty is not large enough to explain the collapse — a supervised model absorbs both and still scores 0.64 on the smallest enhancing tumors.** This is the strongest evidence in the report that the failure is specific to text-conditioned localization, and it rules out the most obvious deflationary reading of the entire project.
+
+![P′ validation. Left to right: enhancing tumor, tumor core, whole tumor. Solid bars are the supervised U-Net, faded bars the text-conditioned baseline, both on the same held-out patients under the same Dice implementation. The supervised model's large/small ratio is 1.2–1.3× against the text-conditioned 4.9–15.0×.](figures/fig_pprime_size.png){width=98%}
 
 ### 6.2 RQ1: Size-stratified localization
 
@@ -117,6 +193,82 @@ The qualitative example above makes the mechanism visible: the visible blockines
 | WT | large | 0.2809 | 0.2467 | 0.2576 | 0.2617 ± 0.0142 |
 
 **The monotonic small < medium < large pattern holds exactly in all 3 seeds, for all 3 regions** (9 of 9 replications). Absolute Dice values shift somewhat between splits (expected, given different held-out patients and a modest ~73-patient validation set each time), but the core relationship this project is built around is not an artifact of one particular train/val split.
+
+### 6.3 RQ11: How much of the collapse is grounding failure, and how much is the threshold?
+
+Sections 6.1-6.2 measure localization through a two-stage pipeline: a continuous similarity heatmap, then an unsupervised Otsu threshold converting it to a binary mask. Every Dice number reported so far is a property of *both* stages. The chance-level control in Section 6.2 does not separate them — a random heatmap is binarized by the same Otsu step, so a thresholding pathology would appear in the model and the control alike and cancel out of the lift ratio.
+
+This matters because Otsu picks its cut point from each volume's own intensity histogram, with no reference to the query or to plausible lesion size. If it emits a roughly constant-size blob regardless of the target, small lesions would score badly for a reason unrelated to text-conditioned grounding. Our result CSVs could not answer this: they never recorded how large the predicted mask actually was.
+
+We therefore recomputed the heatmap once per (patient, region) with the identical frozen baseline and 32³/stride-16 protocol, then binarized it five ways: Otsu (the published protocol), fixed top-10%/5%/1% of voxels, and an **oracle-volume** threshold taking exactly as many voxels as the ground-truth mask contains. The last removes threshold calibration from the problem entirely and asks only how well the heatmap *ranks* voxels; it uses ground truth and is therefore a diagnostic upper bound, never a deployable method.
+
+**Otsu is badly miscalibrated, and miscalibrated in the wrong direction.**
+
+| Region | Bin | GT volume | Otsu predicted | Over-prediction | % of imaged volume |
+|---|---|---|---|---|---|
+| ET | small | 4,124 mm³ | 920,036 mm³ | 223.1× | 10.3% |
+| ET | large | 50,716 mm³ | 718,728 mm³ | 14.2× | 8.1% |
+| TC | small | 10,213 mm³ | 1,105,667 mm³ | 108.3× | 12.4% |
+| TC | large | 84,708 mm³ | 937,076 mm³ | 11.1× | 10.5% |
+| WT | small | 38,995 mm³ | 1,371,023 mm³ | 35.2× | 15.4% |
+| WT | large | 164,364 mm³ | 1,022,709 mm³ | 6.2× | 11.5% |
+
+Otsu returns a near-constant 8-15% of the imaged volume whatever the target's size. Worse, the correlation between true and predicted volume is **negative in all three regions** (ET ρ=−0.374, p=0.0018; TC ρ=−0.258, p=0.028; WT ρ=−0.475, p=2.2×10⁻⁵), where a calibrated predictor would approach +1. The thresholding step assigns *larger* masks to *smaller* lesions, mechanically manufacturing part of the size effect Section 6.2 attributes to grounding.
+
+**The cost of that step is large and paired-significant in 8 of 9 bins.**
+
+| Region | Bin | Otsu Dice | Oracle-volume Dice | Gain | p (Wilcoxon) |
+|---|---|---|---|---|---|
+| ET | small | 0.0100 | 0.0254 | 2.6× | 0.43 (n.s.) |
+| ET | medium | 0.0374 | 0.1495 | 4.0× | 0.038 |
+| ET | large | 0.1488 | 0.3652 | 2.5× | 2.4×10⁻⁷ |
+| TC | small | 0.0192 | 0.0922 | 4.8× | 0.0089 |
+| TC | large | 0.1756 | 0.5175 | 2.9× | 4.8×10⁻⁷ |
+| WT | small | 0.0568 | 0.2600 | 4.6× | 2.0×10⁻⁶ |
+| WT | medium | 0.1367 | 0.5162 | 3.8× | 9.5×10⁻⁷ |
+| WT | large | 0.2809 | 0.6218 | 2.2× | 1.9×10⁻⁶ |
+
+This revises a claim made in Section 6.2. We attributed modest absolute Dice to "a lightweight ResNet-10 baseline with an unsupervised Otsu threshold" — the measurement now shows the threshold, not the backbone, carried most of that cost. Whole-tumor large-lesion Dice is 0.622 under proper binarization, not 0.281. The single exception is ET-small, the only bin where better thresholding does *not* help significantly (p=0.43): there the heatmap's ranking is itself poor, so no cut point recovers it.
+
+**The size collapse survives, at reduced magnitude.**
+
+| Region | L/S ratio (Otsu, as reported in 6.2) | L/S ratio (oracle-volume) | Spearman(Dice, volume) Otsu → oracle |
+|---|---|---|---|
+| ET | 15.0× | **14.4×** | 0.970 → 0.835 |
+| TC | 9.2× | **5.6×** | 0.978 → 0.770 |
+| WT | 4.9× | **2.4×** | 0.968 → 0.781 |
+
+Enhancing tumor's collapse is essentially entirely genuine; tumor core's and whole tumor's are roughly half thresholding artifact. The honest headline is therefore **2.4-14.4× degradation after controlling for binarization**, not 5-15×. The relationship remains monotonic, strongly positive, and present in every region under every one of the five binarization rules tested — it is the magnitude, not the existence, that was overstated.
+
+**A threshold-independent metric isolates where the real failure lives.** Dice conflates "did the model point at the lesion" with "did it draw the right boundary." We therefore also report the **pointing game** (Zhang et al., 2018): is the highest-response location inside the true mask? It is free of Dice's geometric size penalty. Its chance level still scales with target size, so we compare against a per-bin chance baseline (mean GT voxels ÷ total voxels) with an exact binomial test.
+
+**First, a correction to how that peak is located.** A sliding window of stride $s$ gives every voxel the mean of the windows covering it, and all voxels inside the same $s^3$ block are covered by an identical window set — so the heatmap is *piecewise-constant over $s^3$ blocks*, not smooth. At our published 32³/stride-16 protocol that block is 16³ = 4096 voxels, roughly 30 mm across, and `argmax` silently returns the block's **corner** in array order rather than anything peak-like. We verified this directly: the median count of voxels tied at the maximum is exactly 4096 at stride 16 and exactly 512 at stride 8, matching $s^3$ in both cases. We therefore locate the peak at the **centroid of the tied-maximum plateau** and report both rules below, since the naive rule biases hit rates down and distances up.
+
+| Region | Bin | n | Hits (corrected) | Hit rate | Chance | Lift | p | Median distance |
+|---|---|---|---|---|---|---|---|---|
+| ET | small | 21 | **0** | 0.000 | 0.0005 | **0.0×** | 1.00 | 23.7 mm |
+| ET | medium | 23 | 3 | 0.130 | 0.0018 | 74.5× | 9.3×10⁻⁶ | 9.4 mm |
+| ET | large | 23 | 8 | 0.348 | 0.0057 | 61.2× | 4.9×10⁻¹³ | 2.9 mm |
+| TC | small | 27 | 3 | 0.111 | 0.0011 | 97.1× | 4.3×10⁻⁶ | 12.0 mm |
+| TC | medium | 23 | 8 | 0.348 | 0.0035 | 99.0× | 1.1×10⁻¹⁴ | 1.9 mm |
+| TC | large | 23 | 16 | 0.696 | 0.0095 | 73.3× | 9.9×10⁻²⁸ | 0.0 mm |
+| WT | small | 32 | 17 | 0.531 | 0.0044 | 121.6× | 4.1×10⁻³² | 0.0 mm |
+| WT | medium | 21 | 18 | 0.857 | 0.0105 | 81.9× | 2.9×10⁻³³ | 0.0 mm |
+| WT | large | 20 | 17 | 0.850 | 0.0184 | 46.2× | 3.5×10⁻²⁷ | 0.0 mm |
+
+The correction matters most where the model was already doing well: whole-tumor small goes from 6/32 hits to 17/32, and tumor-core large from 13/23 to 16/23. **The headline claim is unaffected: enhancing-tumor small remains 0 hits in 21 patients under both rules.** The old first-argmax numbers are retained in the analysis log for comparison.
+
+<!-- superseded rows, kept for reference against the first-argmax rule:
+| ET | small | 21 | 0 | 0.000 | 0.0005 | 0.0× | 1.00 | 27.5 mm |
+| ET | large | 23 | 6 | 0.261 | 0.0057 | 45.9× | 3.1×10⁻⁹ | 2.4 mm |
+| TC | large | 23 | 13 | 0.565 | 0.0095 | 59.6× | 5.3×10⁻²¹ | 0.0 mm |
+| WT | small | 32 | 6 | 0.188 | 0.0044 | 42.9× | 5.7×10⁻⁹ | 8.7 mm |
+| WT | large | 20 | 16 | 0.800 | 0.0184 | 43.5× | 7.9×10⁻²⁵ | 0.0 mm |
+-->
+
+Chance-corrected lift is roughly **uniform at 46-122× across every region and size bin** — echoing Section 6.2's finding that lift over chance is approximately constant, but now with a metric that has no built-in size bias. The exception is stark and specific: **for small enhancing tumor the model is at exact chance, 0 hits in 21 patients, with its peak response a median 23.7 mm from the nearest lesion voxel.** That is not a boundary-delineation failure; the model is not pointing at the lesion at all. This is the sharpest statement of the failure this project can make, and it is confined to one region×bin rather than being the smooth monotonic collapse the Dice framing suggests. Section 7.12 returns to this bin and shows it is the one place the smaller-window intervention genuinely helps.
+
+**One deployable consequence.** The fixed top-1% threshold (`pct99`) needs no ground truth and beats Otsu everywhere, by 3-4× for ET (0.0436/0.1774/0.3672 vs 0.0100/0.0374/0.1488). For ET it even beats the oracle-volume threshold in all three bins — when a heatmap's ranking is unreliable, a mask larger than the true lesion is Dice-optimal, because concentrating into exactly the right *number* of voxels is only rewarded if they are the right *ones*. Replacing Otsu with a fixed percentile is a free protocol improvement, and unlike the oracle it is usable at inference time.
 
 ## 7. Ablation Studies
 
@@ -256,13 +408,140 @@ All of RQ1/RQ2's text was templated, textbook-style description. To rule out the
 
 Result: **essentially no difference.** 8 of 9 region×bin comparisons show no significant difference from the original templated-text RQ1 (paired Wilcoxon, all p>0.07), and Spearman correlation between Dice and log-volume is nearly identical (ρ=0.958 templated vs. 0.959 naturalistic). The one significant difference (TC large, p=0.0035) is a small improvement, not a concern. This is a clean replication: the small-lesion grounding failure is a property of the model/task, not an artifact of using templated rather than naturalistic language.
 
-### 7.8 Summary across ablations
+### 7.8 RQ7: Does the text encoder contribute anything at all?
+
+Every ablation so far manipulated *what the text says*. RQ7 asks a blunter question: does it matter *what produces the embedding*? We retrained the identical architecture and protocol under four substituted text conditions, changing nothing else:
+
+- **BERT-base** — general-domain rather than biomedical pretraining.
+- **Random-init BERT (frozen)** — the PubMedBERT architecture with randomly initialized weights, never trained. Preserves BERT's embedding *geometry* but carries no learned semantics.
+- **4 random orthonormal vectors** — pure class identifiers. No language, no geometry inherited from any encoder.
+- **Random vectors at PubMedBERT's geometry** — random vectors resampled to match PubMedBERT's anisotropic covariance structure. Semantically empty, but geometrically identical to the real thing.
+
+The last two are the decomposition that makes this informative: comparing PubMedBERT against *random vectors at its own geometry* isolates the contribution of **meaning** with geometry held fixed, while comparing orthonormal against anisotropic random vectors isolates the contribution of **geometry** with semantics held fixed at zero.
+
+**The single-seed result looked dramatic and was largely wrong.** Pooled over all regions and bins, patient-paired tests reported random-init BERT *beating* PubMedBERT by +0.038 Dice at p≈6×10⁻³⁵, and BERT-base beating it by +0.015 at p≈4×10⁻¹⁵. Those p-values are not defensible. Each condition was trained exactly once, so the unit of randomization is the *training run*, not the patient; treating 213 patients from one run as 213 independent observations is pseudo-replication. The check that exposed it: retraining the *identical* PubMedBERT model under three seeds moves pooled Dice by 0.0086 on its own — comparable to several of the effects being claimed.
+
+**Retrained under three seeds each, almost nothing survives.**
+
+| Text condition | seed 0 | seed 1 | seed 2 | mean Δ | verdict |
+|---|---|---|---|---|---|
+| BERT-base (general domain) | +0.0151 | −0.0378 | +0.0078 | −0.0050 | sign flips → **noise** |
+| Random-init BERT (frozen) | +0.0379 | +0.0283 | −0.0014 | +0.0216 | sign flips → **noise** |
+| Random vectors, PubMedBERT geometry | −0.0072 | +0.0370 | +0.0085 | +0.0128 | sign flips → **noise** |
+| **4 random orthonormal vectors** | −0.0140 | −0.0103 | −0.0020 | **−0.0087** | consistent, 2.0× noise floor |
+
+Noise floor (baseline retrained, 3 seeds) = 0.0044 pooled Dice.
+
+![RQ7 text-encoder ablations. Each dot is one independent training run; the vertical tick is the mean of the three. The grey band is the retraining noise floor, measured by retraining the *identical* PubMedBERT baseline under three seeds. Only the orthonormal-vector condition (orange) keeps its sign across all three runs; the other three change direction from run to run despite within-run p-values as small as 6×10⁻³⁵.](figures/fig_rq7_encoder.png){width=98%}
+
+Three findings follow, and the first two are uncomfortable.
+
+**Biomedical pretraining is worth nothing measurable here.** Swapping PubMedBERT for general-domain BERT-base produces an effect that changes sign across training runs. Whatever domain knowledge PubMedBERT encodes about enhancing tumor and peritumoral edema, this pipeline does not use it.
+
+**Neither is language.** Replacing the encoder entirely with random vectors — no text, no tokenizer, no pretraining — is also indistinguishable from noise, provided those vectors carry PubMedBERT's anisotropic geometry. The one condition that *does* reliably underperform is the one that discards that geometry (orthonormal vectors, −0.0087, consistent across all three seeds). The decomposition is therefore stark: **the semantic content of the text contributes nothing detectable, while its embedding geometry contributes a small but reproducible amount.** Section 3 noted that our four class descriptions sit at ~0.99 pairwise cosine similarity; RQ7 shows the trainable projection head is not merely doing *most* of the discriminative work, it is doing essentially *all* of it, and it works about as well starting from arbitrary vectors as from meaning.
+
+**The core finding is encoder-independent.** The large/small Dice ratio stays in the same range under every text condition and every seed (ET 10.6–18.2×, TC 7.3–17.6×, WT 4.6–5.6×). The small-lesion collapse is not a property of PubMedBERT; it survives replacing the language model with noise.
+
+### 7.9 RQ8: Is the query functioning as language, or as a class identifier?
+
+RQ7 shows the encoder can be replaced. RQ8 asks the complementary, more mechanistic question directly of the *trained* baseline: does it respond to linguistic structure at all? We built four manipulations of each region description and re-ran the frozen RQ1 model on all of them — evaluation only, no retraining:
+
+- **negated** — the same clinical content under explicit negation ("*no* enhancing tumor is seen"). Preserves nearly every content word while inverting the meaning.
+- **shuffled** — word order destroyed by a fixed-seed permutation. Holds the bag of words exactly constant, removes only syntax.
+- **swapped** — the sentence frame kept, the region's head term replaced by a different region's.
+- **generic** — contentless filler naming no anatomy or pathology at all ("a region of tissue"). The floor condition.
+
+The "original" condition reproduces `rq1_localization_scores.csv` exactly, which is an automatic end-to-end correctness gate on the script.
+
+**The model barely notices any of it.**
+
+| Manipulation | Cosine to original, *after* the trained projection | Heatmap Spearman ρ vs. original |
+|---|---|---|
+| negated | 0.940 – 0.962 | 0.561 – 0.939 |
+| shuffled | 0.962 – 0.974 | 0.753 – 0.996 |
+| swapped | 0.954 – 0.981 | 0.793 – 0.965 |
+| generic | 0.940 – 0.947 | 0.777 – 0.924 |
+
+Every manipulation stays above 0.94 cosine to the original query *after* the trained text head — the component supposedly responsible for making these classes discriminable. The projection does not separate "enhancing tumor" from "no enhancing tumor" from "a region of tissue" in any strong sense.
+
+![RQ8 compositionality probes. Spearman correlation between each manipulated query's heatmap and the true clinical query's, averaged over held-out patients. A model that composed meaning would drop sharply under negation and under word-order destruction; instead every bar sits between 0.56 and 1.00, and shuffling word order leaves whole-tumor behaviour essentially unchanged (ρ=0.996).](figures/fig_rq8_compositionality.png){width=98%}
+
+**Contentless and wrong-referent text sometimes localizes better than the real description.** For whole tumor, the generic filler beats the true clinical description (+0.017 Dice) and the wrong-region term beats it by more (+0.033). Shuffling word order changes whole-tumor Dice by −0.0009 — not significant (q=0.09), i.e. **syntax is worth nothing for the largest region**. Negation does degrade performance everywhere, but that is the expected behaviour of a bag-of-words matcher encountering extra tokens, not evidence of understood polarity: if the model represented negation, the negated ET query should behave like the *background* class rather than like a slightly degraded ET query.
+
+**Embedding distance does not predict behavioural change.** Across the 12 condition×region cells, the correlation between how far a manipulation moves the projected query and how much it changes localization is ρ=+0.41, p=0.19. If the embedding carried graded meaning, moving further should change behaviour more. It does not.
+
+Taken with RQ7, this is the mechanistic version of the paper's title claim. The text query is not functioning as language; it is functioning as an **opaque class identifier that happens to be spelled in English**. That explains RQ5's null result (Section 7.7) far better than "the failure is robust to phrasing": swapping templated for naturalistic text changed little because *no* phrasing change matters much when the pathway is a lookup, not a parse.
+
+### 7.10 Do the ablation conclusions replicate across training runs?
+
+Section 6.2 replicated the *core* finding across three splits, but every ablation conclusion above rested on one training run each — exactly the trap RQ7 exposed. We retrained and re-evaluated RQ2, RQ4, RQ5 and RQ6 under seeds 0/1/2.
+
+| Ablation | seed 0 | seed 1 | seed 2 | mean Δ | region×bin combinations replicating in all 3 |
+|---|---|---|---|---|---|
+| RQ2 (size-conditioned text) | +0.0227 | +0.0098 | +0.0258 | +0.0194 | 4 / 9 |
+| RQ4 (scale-matched) | −0.0376 | −0.0466 | −0.0109 | −0.0317 | 6 / 9 |
+| RQ5 (naturalistic text) | +0.0035 | +0.0528 | +0.0641 | +0.0401 | 6 / 9 |
+| RQ6 (uniformity fix) | −0.0231 | −0.0378 | −0.0295 | −0.0301 | 7 / 9 |
+
+All four hold their *direction* in all three runs, so the headline verdicts — RQ2 helps on average, RQ4 and RQ6 hurt — are not split artifacts. Three qualifications follow, and one is a correction.
+
+**A correction to Section 7.7.** RQ5 was reported as showing "essentially no difference" from templated text. That was a seed-0 artifact. Across three runs naturalistic text is consistently *better* (+0.040 pooled, positive in all three seeds, 9× the noise floor), driven by TC and WT which replicate 3/3 in every size bin. The n=3 one-sample *t*-test is p=0.16 and therefore not significant on its own — with three runs it has almost no power — so the honest statement is: **consistent in direction and large relative to retraining noise, but not formally significant at this replication count.** What does *not* change is the conclusion that mattered: the size collapse persists under naturalistic text (L/S ratios 11.6–16.2× ET, 6.4–9.6× TC, 4.1–4.9× WT), so the finding is still not a templating artifact. RQ5 is a weaker robustness check than claimed and a stronger positive result than claimed.
+
+**RQ2's per-bin story is the least stable.** Only 4 of 9 combinations replicate in all three seeds. Specifically, the headline claim that size-conditioned prompting *worsens* small enhancing tumor holds in 2 of 3 seeds (−0.0021, −0.0015, +0.0042), and the whole-tumor small bin flips outright (1/3). The robust part of RQ2 survives and is arguably sharper: size-conditioned prompting consistently *increases* the ET large/small ratio (24.3×, 23.0×, 16.3× versus the baseline's 15.0×, 14.7×, 12.4×) in every seed. It makes the size disparity worse even where it raises mean Dice.
+
+**RQ4 and RQ6 are the most stable negative results in the project** (6/9 and 7/9), and both reduce the L/S ratio relative to baseline — they compress the size gap by degrading large-lesion performance, not by improving small-lesion performance.
+
+### 7.11 RQ12: Is the smaller window's win real, or an artifact of the threshold?
+
+Sections 7.3-7.4 crowned the isolated smaller window as this project's best intervention on the strength of Dice under Otsu. Two things about that verdict were never checked, and Section 10 flagged both as the most valuable outstanding follow-up. First, Dice conflates finding a lesion with outlining it, so a Dice win is consistent with the window merely tightening masks around lesions the model already found. Second, every Section 7 comparison shares the Otsu binarizer, which we argued made them internally fair — but Section 6.3 then showed Otsu is *anti*-correlated with lesion size, so it is not a neutral common factor at all.
+
+We recomputed the heatmaps at both window sizes and scored each under all five binarization rules plus the corrected pointing game. Running the pipeline at window 32 reproduces `rq11_threshold_confound_scores.csv` on 212 of 213 patients bit-for-bit (the one exception differs by 5×10⁻⁴ Dice, from a tie in Otsu's 256-bin histogram), which is an end-to-end correctness gate on the generalization.
+
+**The Dice win exists under Otsu and under nothing else.**
+
+| Binarization rule | Window 32³ | Window 8³ | Δ | p | 8³ wins? |
+|---|---|---|---|---|---|
+| **Otsu** (the published protocol) | 0.0972 | 0.1407 | **+0.0435** | 3.8×10⁻³⁴ | **yes** |
+| pct90 | 0.1034 | 0.1020 | −0.0014 | 3.7×10⁻¹⁸ | no |
+| pct95 | 0.1774 | 0.1738 | −0.0036 | 3.9×10⁻⁰⁸ | no |
+| pct99 (deployable) | 0.2968 | 0.2574 | **−0.0394** | 6.4×10⁻⁴ | no |
+| oracle-volume (diagnostic) | 0.3085 | 0.2652 | **−0.0433** | 1.0×10⁻² | no |
+
+![RQ12. The same two models, the same patients, the same Dice implementation — scored under five binarization rules. The 8³ window's advantage exists only in the leftmost group, the threshold this project standardized on; under the deployable top-1% rule and the oracle-volume diagnostic it reverses.](figures/fig_rq12_threshold_reversal.png){width=98%}
+
+Pooled over all 213 patient×region pairs, the 8³ window beats 32³ by +0.044 Dice under Otsu and *loses* under every other rule, by a margin as large as the win under the two rules that best reflect heatmap quality. The pct90/pct95 deltas are statistically significant but negligible in magnitude (|Δ|<0.004) and we do not read them as substantive; pct99 and oracle-volume are both substantive and both negative.
+
+**This overturns Section 7.11's previous bottom line.** The smaller window was not localizing better. It was producing a heatmap whose intensity histogram happens to interact more favourably with Otsu's between-class-variance criterion. Change the binarizer to anything better calibrated and the advantage inverts. The published +0.044 was measuring the coupling between a model and a bad thresholder, not grounding quality — and no amount of paired testing or FDR correction would have caught it, because every arm shared the same confounded metric.
+
+**The pointing game splits sharply by region, and rescues one specific claim.**
+
+| Region | Bin | 32³ hit rate | 8³ hit rate | Change |
+|---|---|---|---|---|
+| ET | small | 0.000 | **0.143** | **+0.143** |
+| ET | medium | 0.130 | **0.391** | **+0.261** |
+| ET | large | 0.348 | **0.565** | **+0.217** |
+| TC | small | 0.111 | 0.000 | −0.111 |
+| TC | medium | 0.348 | 0.043 | −0.304 |
+| TC | large | 0.696 | 0.087 | −0.609 |
+| WT | small | 0.531 | 0.375 | −0.156 |
+| WT | medium | 0.857 | 0.571 | −0.286 |
+| WT | large | 0.850 | 0.850 | ±0.000 |
+
+For enhancing tumor — the smallest, clinically hardest region — the smaller window improves pointing accuracy in every size bin. **Most notably it partially repairs the single sharpest failure in this report: ET-small goes from 0 of 21 patients to 3 of 21, which is 309× its chance level (p=1.3×10⁻⁷) rather than exactly at chance.** For tumor core and whole tumor it makes pointing dramatically worse, collapsing TC-large from 0.696 to 0.087.
+
+So the smaller window is not a general improvement and not a general failure. It trades away localization of large structures to gain localization of small ones — which is a coherent consequence of shrinking the receptive field, and is exactly the trade the project was looking for, just far narrower than the Dice numbers implied. The correct claim is: **an 8³ query window measurably improves grounding for enhancing tumor, including the bin that was previously at chance, while degrading it everywhere else and losing on Dice under every well-calibrated threshold.**
+
+### 7.12 Summary across ablations
 
 \newpage
 
-![Leaderboard: every method's mean Dice, one panel per region, bars grouped by size bin. RQ3c (green) is consistently the strongest performer; RQ4 (pink) is consistently the weakest.](figures/fig_leaderboard.png){width=98%}
+![Leaderboard: every method's mean Dice, one panel per region, bars grouped by size bin. Note that these are Otsu-thresholded scores; Section 7.11 shows the RQ3c ranking does not survive a better binarizer.](figures/fig_leaderboard.png){width=98%}
 
-**The honest bottom line across every ablation attempted: nothing beats the simplest intervention found in this project — evaluating the original, unmodified RQ1 model at a single smaller window (RQ3b/RQ3c), with no retraining at all.** Every more sophisticated attempt (text-side size conditioning in RQ2, scale-matched retraining in RQ4, embedding-collapse repair in RQ6) produces genuine, verifiable partial successes on its own terms, but none surpass that one simple change. That is itself a real finding, not a null result to bury: added complexity introduced its own new failure modes (embedding collapse, ensembling miscalibration) faster than it fixed the original one.
+**The honest bottom line, after Section 7.11: this project did not find an intervention that improves small-lesion grounding across the board.** The candidate that appeared to — evaluating the frozen model at a smaller query window — turned out to win only under the specific threshold the whole project had standardized on, and to lose under better-calibrated ones. Every other attempt (text-side size conditioning in RQ2, scale-matched retraining in RQ4, embedding-collapse repair in RQ6) produced genuine, verifiable partial successes on its own terms, and none surpassed the plain baseline.
+
+Two positive results do survive. First, the smaller window genuinely improves *pointing* accuracy for enhancing tumor in all three size bins, including lifting the previously-at-chance ET-small bin to 309× chance — a narrow but real fix to the report's sharpest failure. Second, replacing Otsu with a fixed top-1% threshold is a free, deployable protocol improvement worth 2-4× Dice on its own (Section 6.3), and it requires no retraining and no ground truth.
+
+The most valuable output of this project is therefore diagnostic rather than remedial: a set of controls — chance baselines, noise probes, cross-seed replication, pipeline decomposition, metric triangulation, and metric well-definedness — that between them caught four claims this work would otherwise have reported as findings. Sections 7.8-7.11 each overturned or substantially qualified a conclusion the earlier sections had already written down.
 
 ## 8. Diagnostic Methodology
 
@@ -272,12 +551,18 @@ The ablation studies above rely on four recurring diagnostic tools, used consist
 2. **Noise-probe diagnosis** (Sections 7.5-7.6): feeding pure synthetic noise through a trained model's real input pipeline to check whether an apparent capability (e.g. RQ4's improved classification accuracy) is grounded in real content or a shortcut/artifact.
 3. **Cross-split replication** (Section 6.2): re-running the core finding on 2 additional independent random splits, not just reporting one lucky/unlucky split.
 4. **Family-wise FDR correction** (Benjamini-Hochberg): every paired significance claim made anywhere in this report is corrected across the full accumulated family of tests, not evaluated against an uncorrected α=0.05.
+5. **Pipeline decomposition** (Section 6.3): when a metric is produced by a multi-stage pipeline, measuring each stage's separate contribution rather than attributing the result to the stage of interest by default. Applied to the heatmap/threshold split, this showed that roughly half of the measured collapse for two of three regions came from the binarization step rather than from grounding — a confound invisible to the chance-level control in tool 1, because the control passes through the same binarization and the artifact cancels out of the ratio.
+6. **Metric triangulation** (Section 6.3): confirming a finding with a second metric whose failure modes differ from the first. Dice conflates pointing with delineation and carries a geometric size penalty; the pointing game separates them and has no such penalty. Where the two agree the claim is robust; where they diverge — as at ET-small, at chance on pointing but merely "low" on Dice — the divergence itself is the finding.
+7. **Replication at the right unit** (Sections 7.8, 7.10): a within-run paired test over 213 patients answers "is this difference real *for this trained model*", not "is this difference real". Since every arm here is one training run, the unit of replication is the run, and the honest evidence is sign consistency across independently seeded runs measured against a retraining noise floor. Applied to RQ7 this demoted a p≈6×10⁻³⁵ result to noise; applied to RQ5 it upgraded a reported null to a consistent positive.
+8. **Metric well-definedness** (Section 7.11): checking that a metric measures what its name implies before interpreting it. The pointing game presumes a well-defined peak; a strided sliding window makes the heatmap piecewise-constant over blocks, so `argmax` returns a block corner and the "peak" is ambiguous by up to the stride. Measuring the size of the tied-maximum plateau exposed this and changed several Section 6.3 numbers substantially.
+
+**On the value of these tools.** Four claims in this report were overturned or materially qualified by tools 5-8, *after* they had already been written up as findings: the magnitude of the size collapse (tool 5), the RQ7 encoder effects and the RQ5 null (tool 7), the pointing-game hit rates (tool 8), and — most consequentially — the identity of the project's best intervention (Section 7.11, tool 5 applied to the threshold). Each was a plausible, statistically significant, internally consistent result. That is the honest lesson of this project: with a multi-stage pipeline and a shared confounded metric, significance testing alone does not protect you, because every arm inherits the same confound and the comparison still looks clean.
 
 Figure below visualizes the outcome of every one of those corrected significance tests at once — every ablation, every region, every size bin, in one panel:
 
 ![Every paired significance test run in this project, RQ1 baseline vs. each ablation, one row per comparison, one column per region×size bin. Blue = significantly better, red = significantly worse, white = no significant difference; solid color survives BH-FDR correction, pale color is significant only before correction.](figures/fig_significance_heatmap.png){width=98%}
 
-Reading this figure end to end tells the whole story at a glance: RQ3b/RQ3c (rows 3-6) are almost entirely solid blue, the isolated-window fix genuinely working almost everywhere it's tested; RQ4 and RQ6 (rows 7-8) are almost entirely solid red, both training-side attempts genuinely underperforming the baseline despite RQ6's improvement over RQ4; RQ5 (bottom row) is almost entirely white, exactly as a robustness check that finds no meaningful difference should look; and RQ2/RQ3 (rows 1-2) are a genuine mix, matching their more nuanced, region-dependent stories in Sections 7.1 and 7.2. See Section 7.8 for the substantive conclusion this figure supports.
+Reading this figure end to end tells the whole story at a glance: RQ3b/RQ3c (rows 3-6) are almost entirely solid blue, the isolated-window fix genuinely working almost everywhere it's tested; RQ4 and RQ6 (rows 7-8) are almost entirely solid red, both training-side attempts genuinely underperforming the baseline despite RQ6's improvement over RQ4; RQ5 (bottom row) is almost entirely white, exactly as a robustness check that finds no meaningful difference should look; and RQ2/RQ3 (rows 1-2) are a genuine mix, matching their more nuanced, region-dependent stories in Sections 7.1 and 7.2. See Section 7.12 for the substantive conclusion this figure supports. Note that this figure, like the leaderboard, shows Otsu-thresholded comparisons; Section 7.11 shows the RQ3b/RQ3c rows do not survive a better-calibrated binarizer.
 
 ## 9. Challenges
 
@@ -301,10 +586,12 @@ Several non-trivial obstacles came up during implementation, beyond the RQ2 nega
 
 - **Single anatomy, single dataset.** All results are on BraTS2020 brain tumors. Whether the same size-dependent collapse and the same failure of size-conditioned prompting hold for other organs/lesion types (e.g. lung nodules, liver lesions) is untested here — Future Work below proposes this as the next check.
 - **Modest per-bin sample sizes.** Size bins range from n=20 (WT large) to n=32 (WT small) patients. The overall monotonic pattern is consistent and large in effect size, but individual bin means, especially for ET (27/369 patients have no enhancing tumor at all, further shrinking that region's usable sample), should be read with that sample size in mind.
-- **Lightweight backbone, not a competitive segmentation model.** A ResNet-10 with sliding-window Otsu thresholding is a deliberately simple architecture chosen to make the size-vs-quality relationship easy to isolate and interpret. Absolute Dice numbers should not be compared to state-of-the-art BraTS segmentation leaderboards (which reach Dice >0.85 on whole tumor) — this project's claims are about the *shape* of the size-quality relationship, not about achieving competitive segmentation.
-- **Templated, not naturalistic, text.** Region descriptions are hand-written templates (Section 5), not real radiologist-authored report sentences. RQ5 tested one naturalistic rewrite and found no meaningful difference from the templated version, which is reassuring but not exhaustive — it's still one specific naturalistic phrasing, not a sample of real report variation.
-- **Only 3 splits checked, not full k-fold.** RQ1's core monotonic pattern was confirmed on two additional independent random splits (Section 6.2), and held in all 3 (9/9 region×bin replications), which substantially reduces the risk this is an artifact of one lucky/unlucky split. A full k-fold sweep, and re-running RQ2 through RQ6 across multiple seeds rather than just RQ1, would still be a stronger confirmation.
-- **The Otsu threshold and stride-16 sliding window are simple, un-tuned choices**, not the result of a hyperparameter search — they were chosen to keep the localization mechanism transparent and inspectable rather than to maximize absolute Dice.
+- **Lightweight backbone, not a competitive segmentation model.** A ResNet-10 with sliding-window Otsu thresholding is a deliberately simple architecture chosen to make the size-vs-quality relationship easy to isolate and interpret. Absolute Dice numbers from the text-conditioned arms should not be compared to state-of-the-art BraTS leaderboards. Section 6.1's P′ check bounds how much of that gap is the setup rather than a pipeline defect: the same data, split and metric under conventional dense supervision reach published-range Dice, so the low text-conditioned numbers are a property of the task formulation, not of broken plumbing.
+- **Templated, not naturalistic, text.** Region descriptions are hand-written templates (Section 5), not real radiologist-authored report sentences. RQ5 tested one naturalistic rewrite; across three seeds it is consistently *better* than templated text rather than equivalent (Section 7.10), though not formally significant at n=3 runs. Either way it is one specific naturalistic phrasing, not a sample of real report variation.
+- **Replication is 3 runs, not full k-fold.** RQ1's core pattern held in all 3 seeds (9/9 region×bin), and RQ2/RQ4/RQ5/RQ6 and all four RQ7 conditions have since been replicated across 3 seeds each (Sections 7.8, 7.10). This is a substantial strengthening over the single-run evidence, but 3 runs give the cross-seed *t*-tests almost no power, which is why those sections lead with sign consistency against a noise floor rather than with p-values. A full k-fold sweep would be stronger.
+- **The Otsu threshold was not a neutral choice, and it changed a headline conclusion.** Otsu and the stride-16 window were chosen for transparency rather than to maximize Dice. Section 6.3 quantifies the price: 2.2-5.4× in Dice relative to an oracle-volume threshold, 6-223× volume over-prediction, and *anti*-correlation with true lesion size. Section 10 of an earlier draft argued the Section 7 comparisons were nonetheless internally fair because every arm shared the threshold. **That argument was wrong**, and Section 7.11 shows why: the winning intervention's entire advantage is Otsu-specific and reverses under every better-calibrated rule. A shared confound is not a cancelled confound when arms interact with it differently.
+- **The window sweep (RQ3b/RQ3c) has not been fully re-run under a better binarizer.** Section 7.11 re-scored only the 32³ and 8³ endpoints. The 16³, 12³ and 6³ points, and the reported ET/TC plateau at 6³, are still Otsu-only results and should be treated as provisional in light of that section.
+- **The oracle-volume threshold is a diagnostic, not a method.** It uses the ground-truth voxel count and is therefore unavailable at inference. It is reported only to bound how much of the collapse is attributable to thresholding. The `pct99` fixed-percentile rule is the deployable version, and it recovers much of the same benefit.
 - **RQ6's fix is incomplete, and its diagnostic follow-up is not a deployable method.** The uniformity regularizer fixed 2 of 3 shortcut behaviors identified by the noise probe, not all 3 — a residual hub bias remains for the smallest-scale pipeline, and RQ6 still underperforms the plain RQ1 baseline in 7 of 9 bins. Separately, the single-scale oracle test used to isolate why ensembling helps RQ6 relies on the *true* size bin label, which is not available at real inference time — it is a mechanism-isolating diagnostic, not a proposed evaluation protocol.
 - **The window-size floor was only characterized down to 6³, and only for two of three regions.** RQ3c found a plateau for ET/TC at 6³, but WT was still improving significantly at that point — the true floor for WT, and whether ET/TC's plateau holds at even smaller windows (4³, 2³), is untested.
 
@@ -312,8 +599,11 @@ Several non-trivial obstacles came up during implementation, beyond the RQ2 nega
 
 - **A smarter cross-scale combination rule.** RQ3 and RQ6 together show the failure mode isn't multi-scale representation learning itself, nor is ensembling inherently harmful (RQ6 benefits from it) — but naive voxel-wise max lets the noisiest scale win when the underlying model wasn't trained to be calibrated at that scale (RQ3). Worth trying: a learned gating/attention mechanism across scales, or weighting by each scale's calibration/confidence rather than taking a raw max.
 - **Finish fixing the residual hub bias from RQ6.** The uniformity regularizer fixed 2 of 3 noise-probe shortcut behaviors and improved localization over RQ4 in all 9 bins, but the smallest-scale pipeline still shows residual bias toward the "large" class, and RQ6 still trails the plain RQ1 baseline overall. Worth trying: hard-negative mining that specifically contrasts the "large" and "small" classes during training, or a stronger uniformity weight, to see if the last residual bias can be closed and RQ6 can be pushed past the RQ1 baseline rather than just past RQ4.
-- **Find WT's window-size floor, and re-check ET/TC's.** RQ3c found ET and TC plateau at 6³ while WT is still improving. The natural next step is pushing WT to even smaller windows (4³, 2³) to find where it eventually plateaus, and confirming ET/TC's plateau holds rather than resuming at those smaller sizes too.
-- Extend the size-stratified evaluation to a second dataset (e.g. LIDC-IDRI lung nodules) to see if the failure pattern, and the smaller-window improvement, generalize beyond brain tumors.
+- **Re-run the whole window sweep under `pct99`.** Section 7.11 re-scored only the 32³ and 8³ endpoints and found the ranking inverts. The 16³/12³/6³ points and the reported ET/TC plateau are still Otsu-only and may not survive; this is now the cheapest high-value experiment left, since it needs no retraining.
+- **Close the gap between P′ and the text-conditioned model.** Section 6.1 shows a supervised U-Net reaches 0.64 Dice on the smallest enhancing tumors where the text-conditioned model reaches 0.01, on identical data. That 60× gap is the real target, and it is now bounded rather than speculative. The obvious intermediate is a text-conditioned model with a dense decoder rather than a globally-pooled encoder, which would remove the sliding-window bottleneck entirely and make Grad-CAM-style attribution viable again.
+- **Make the text pathway carry information at all.** RQ7 and RQ8 together show the query is a class index. Worth trying: contrastive negatives built from *within*-region text perturbations (true description vs. its negation as a hard negative pair), which would force the projection head to separate polarity rather than only region identity — the single cheapest change that could make the language side do work.
+- **Find WT's window-size floor, and re-check ET/TC's**, at 4³ and 2³ — but under a calibrated threshold, given Section 7.11.
+- **Extend to a second dataset** (e.g. LIDC-IDRI lung nodules) to test whether the failure pattern generalizes beyond brain tumors.
 
 ## 12. Effort / Contribution
 
@@ -321,12 +611,34 @@ This was an individual project; all design decisions, code, experiments, and wri
 
 **What I had to learn.** Going in, I had not worked with MONAI, 3D medical image formats (NIfTI, multi-modal MRI co-registration), or SLURM job scheduling — all three were new to me and required real ramp-up: understanding how MONAI's 3D ResNet expects channel/volume layout, how to normalize and resample NIfTI volumes correctly (z-scoring within a brain mask rather than globally, which matters for skull-stripped data), and how to structure `sbatch` scripts against this cluster's specific partitions (`dev` for smoke tests capped at 10 minutes, `general` for real training/eval runs, correct account and GPU resource flags). I also had not previously implemented contrastive text-image (here, text-volume) alignment from scratch, so getting the shared embedding space, temperature-scaled cosine similarity loss, and sliding-window inference-time localization working correctly took real iteration — including recognizing partway through that Grad-CAM would not work at all on a globally-pooled architecture, before wasting time implementing it. On the statistics side, I had used t-tests before but not paired Wilcoxon signed-rank tests or Benjamini-Hochberg FDR correction across an accumulating family of tests, both of which turned out to be essential once the project grew past a single comparison — without FDR correction, several of the "significant" results in Section 7 would not have been defensible.
 
-**Rough time split.** Approximately: 10% reading related work (the 3D medical VLM grounding-failure literature in Section 3), 20% environment and data setup (BraTS2020 download, preprocessing, and — unexpectedly costly — resolving the CUDA/PyTorch/transformers dependency conflicts described in Section 9), 25% writing the core pipeline code (text encoder, volume encoder, contrastive training loop, sliding-window localization), 15% debugging (mostly the dependency issues above, plus catching and fixing the incremental-CSV-write bug in preprocessing before it cost a full re-run), 20% designing and running the experiment sequence (RQ1 through RQ6, including the follow-up diagnostic tests like the noise probes and the single-scale oracle check), and 10% writing and revising this report.
+**What I already knew.** I came in comfortable with Python and PyTorch — writing custom `Dataset`/`DataLoader` classes, training loops, optimizers and schedulers, checkpointing, and reading loss curves to tell a bug apart from a bad hyperparameter — so none of the mechanics of building and training a model was new. I had a working understanding of transformer language models and of BERT specifically (tokenization, mean-pooling versus CLS extraction, using a frozen encoder as a feature extractor), which is why the anisotropy problem in Section 5 was something I thought to check for rather than something that ambushed me. I was already fluent with numpy and pandas for data wrangling, with matplotlib for figures, and with git. On the statistics side I was comfortable with correlation, t-tests, and the general logic of null-hypothesis testing, though not with the non-parametric and multiple-comparison machinery this project ended up needing. I also had prior exposure to CNNs and 2D computer vision, which transferred partially — the concepts carried over, but essentially every practical detail of working in 3D (memory budgeting, patch sampling, anisotropic voxel spacing) did not.
+
+**Rough time split.** Approximately: 8% reading related work (the 3D medical VLM grounding-failure literature in Section 3, plus the methods papers cited in Section 5.1); 15% environment and data setup (BraTS2020 download, preprocessing, and — unexpectedly costly — resolving the CUDA/PyTorch/transformers dependency conflicts in Section 9); 20% writing the core pipeline (text encoder, volume encoder, contrastive training loop, sliding-window localization); 12% debugging (mostly the dependency issues, plus the incremental-CSV-write bug caught before it cost a full re-run); 25% designing and running the experiment sequence (RQ1 through RQ12, including the noise probes, the P′ supervised reference, and the seed replications); 8% on the statistics layer specifically (paired testing, FDR correction across an accumulating family, bootstrap intervals, and reworking the analysis once I realized the unit of replication was the training run and not the patient); and 12% writing and revising this report.
+
+**Where the time actually went, versus where I expected.** I expected the bulk of the effort to be in getting a model to work. It was not — the baseline trained on essentially the first serious attempt. The real cost was in *checking* results, and the checks were where the project's actual content came from. Four conclusions I had already written up as findings did not survive their own follow-up test (Section 8), and the last of them — discovering that this project's apparent best intervention won only under the threshold I had standardized on — arrived late enough that it required rewriting the report's conclusion rather than just adding a caveat. If I ran this project again I would build the diagnostic layer first and the model second.
 
 ## References
 
+**Models and representation learning**
+
 - Radford, A., Kim, J. W., Hallacy, C., Ramesh, A., Goh, G., Agarwal, S., Sastry, G., Askell, A., Mishkin, P., Clark, J., Krueger, G., & Sutskever, I. (2021). Learning Transferable Visual Models From Natural Language Supervision. In *Proceedings of the 38th International Conference on Machine Learning (ICML)*, PMLR 139:8748-8763.
+- van den Oord, A., Li, Y., & Vinyals, O. (2018). Representation Learning with Contrastive Predictive Coding. *arXiv:1807.03748*. (Origin of the InfoNCE objective used in Section 5.1.)
+- Wang, T., & Isola, P. (2020). Understanding Contrastive Representation Learning through Alignment and Uniformity on the Hypersphere. In *Proceedings of the 37th International Conference on Machine Learning (ICML)*, PMLR 119:9929-9939. (Basis of the RQ6 uniformity regularizer.)
 - Reimers, N., & Gurevych, I. (2019). Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks. In *Proceedings of the 2019 Conference on Empirical Methods in Natural Language Processing (EMNLP)*, 3982-3992.
+- He, K., Zhang, X., Ren, S., & Sun, J. (2016). Deep Residual Learning for Image Recognition. In *Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR)*, 770-778. (Architecture underlying the MONAI 3D ResNet-10 volume encoder.)
+- Ronneberger, O., Fischer, P., & Brox, T. (2015). U-Net: Convolutional Networks for Biomedical Image Segmentation. In *Medical Image Computing and Computer-Assisted Intervention (MICCAI)*, 234-241. (Architecture of the P′ supervised reference in Section 6.1.)
+
+**Methods: thresholding, metrics, and statistics**
+
+- Otsu, N. (1979). A Threshold Selection Method from Gray-Level Histograms. *IEEE Transactions on Systems, Man, and Cybernetics*, 9(1), 62-66.
+- Zhang, J., Bargal, S. A., Lin, Z., Brandt, J., Shen, X., & Sclaroff, S. (2018). Top-down Neural Attention by Excitation Backprop. *International Journal of Computer Vision*, 126, 1084-1102. (Source of the pointing-game localization metric used in Sections 6.3 and 7.9.)
+- Dice, L. R. (1945). Measures of the Amount of Ecologic Association Between Species. *Ecology*, 26(3), 297-302.
+- Wilcoxon, F. (1945). Individual Comparisons by Ranking Methods. *Biometrics Bulletin*, 1(6), 80-83.
+- Benjamini, Y., & Hochberg, Y. (1995). Controlling the False Discovery Rate: A Practical and Powerful Approach to Multiple Testing. *Journal of the Royal Statistical Society: Series B*, 57(1), 289-300.
+- Kerby, D. S. (2014). The Simple Difference Formula: An Approach to Teaching Nonparametric Correlation. *Comprehensive Psychology*, 3, 11.IT.3.1. (Matched-pairs rank-biserial effect size.)
+- Efron, B., & Tibshirani, R. J. (1993). *An Introduction to the Bootstrap*. Chapman & Hall. (Percentile bootstrap confidence intervals.)
+
+**Application domain**
 - Chen, X., Shi, B., Le, C., Yin, Q., Lin, L., Ni, H., Gong, R., & Li, P. (2026). Auditing Frontier Vision-Language Models for Trustworthy Medical VQA: Grounding Failures, Format Collapse, and Domain Adaptation. *arXiv:2604.27720*.
 - Chen, Y., Xiao, W., Bassi, P. R. A. S., Zhou, X., Er, S., Hamamci, I. E., Zhou, Z., & Yuille, A. (2025). Are Vision Language Models Ready for Clinical Diagnosis? A 3D Medical Benchmark for Tumor-centric Visual Question Answering. *arXiv:2505.18915*.
 - Koleilat, T., Asgariandehkordi, H., Rivaz, H., & Xiao, Y. (2024). MedCLIP-SAMv2: Towards Universal Text-Driven Medical Image Segmentation. *arXiv:2409.19483*. (Published in *Medical Image Analysis*, 2025.)

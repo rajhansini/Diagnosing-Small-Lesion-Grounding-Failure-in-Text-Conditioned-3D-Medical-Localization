@@ -25,11 +25,20 @@ METHODS = [
 
 
 def load_scores(filename):
+    """Read a per-patient score CSV from results/ into a list of dict rows.
+
+    Args:
+        filename: basename of the CSV inside the results directory.
+
+    Returns:
+        List of dicts, one per (patient, region) row.
+    """
     with open(os.path.join(RESULTS_DIR, filename), newline="") as f:
         return list(csv.DictReader(f))
 
 
 def main():
+    """Draw the leaderboard bar chart of every method's mean Dice, one panel per region."""
     fig, axes = plt.subplots(1, 3, figsize=(15, 5), sharey=True)
     x = np.arange(len(BINS))
     width = 0.16

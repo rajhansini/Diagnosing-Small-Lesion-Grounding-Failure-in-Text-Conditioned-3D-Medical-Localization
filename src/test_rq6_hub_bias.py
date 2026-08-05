@@ -18,6 +18,15 @@ N_SAMPLES_PER_BIN = 60
 
 
 def make_noise_patch(crop_size, device):
+    """Build a pure Gaussian-noise patch pushed through one crop size's resize pipeline.
+
+    Args:
+        crop_size: physical crop size to simulate before resizing to the model's input size.
+        device: torch device string.
+
+    Returns:
+        (1, 4, 32, 32, 32) float tensor containing no anatomical content whatsoever.
+    """
     patch = torch.randn(1, 4, crop_size, crop_size, crop_size, device=device)
     if crop_size != MODEL_INPUT_SIZE:
         patch = F.interpolate(patch, size=(MODEL_INPUT_SIZE,) * 3, mode="trilinear", align_corners=False)
@@ -25,6 +34,7 @@ def make_noise_patch(crop_size, device):
 
 
 def main():
+    """Re-run RQ4's noise probe on the RQ6 checkpoint to test whether the embedding hub was broken."""
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print("device:", device)
 

@@ -21,7 +21,24 @@ MODEL_INPUT_SIZE = 32
 
 
 class BraTSScaleMatchedPatchDataset(Dataset):
+    """Size-conditioned patch dataset whose physical crop size is matched to the true size bin.
+
+    Small/medium/large lesions are cropped at 16/32/64 voxels respectively and then resized to the
+    model's canonical 32^3 input, so the network always sees a target that fills a similar fraction of
+    its receptive field. RQ2 changed only the text and did not fix small lesions; this changes the
+    geometry too, testing whether the bottleneck was receptive field rather than language.
+
+    The resize is also what makes this arm vulnerable to shortcut learning: three crop sizes mean
+    three distinct interpolation signatures, and test_rq4_shortcut_hypothesis.py confirms the trained
+    model keys off those artifacts rather than tumor content.
+
+    Args:
+        preprocessed_dir: directory of per-patient .npz files.
+        lesion_csv_path: lesion_volumes.csv, source of true per-region volumes.
+        patient_ids: patient IDs to include; the caller owns the train/val split.
+    """
     def __init__(self, preprocessed_dir, lesion_csv_path, patient_ids):
+        """Build the index, recording each entry's bin-matched physical crop size."""
         self.preprocessed_dir = preprocessed_dir
         with open(lesion_csv_path, newline="") as f:
             self.true_volumes = {row["patient_id"]: row for row in csv.DictReader(f)}
@@ -38,9 +55,18 @@ class BraTSScaleMatchedPatchDataset(Dataset):
             self.index.append((pid, "NONE", "NONE", MODEL_INPUT_SIZE))
 
     def __len__(self):
+        """Number of (patient, region, size-class) entries available."""
         return len(self.index)
 
     def __getitem__(self, idx):
+        """Sample a bin-matched crop, resize it to the model's input size, and label it.
+
+        Args:
+            idx: position in the index.
+
+        Returns:
+            (patch, label) with patch a (4, 32, 32, 32) float tensor after trilinear resizing.
+        """
         pid, region, class_name, crop_size = self.index[idx]
         data = np.load(os.path.join(self.preprocessed_dir, f"{pid}.npz"))
         image, seg = data["image"], data["mask"]
