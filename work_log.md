@@ -19,10 +19,10 @@ It is organised as:
 | **3** | The machinery: data, model, localization, metrics (with the code that does each) |
 | **4** | All fifteen experiments, in chronological order |
 | **5** | The five conclusions we had to reverse, and how each was caught |
-| **6** | Complete inventory: 57 scripts, 111 cluster jobs, 53 result files, 20 figures |
+| **6** | Complete inventory: 58 scripts, 111 cluster jobs, 53 result files, 29 figures |
 | **7** | How to reproduce everything |
 
-**Scale of the work:** 57 Python files (8,103 lines), 45 cluster job scripts, **111 SLURM jobs totalling 22.4 GPU-hours**, 53 per-patient result tables, 171 statistical tests, 20 figures.
+**Scale of the work:** 58 Python files (8,986 lines), 45 cluster job scripts, **111 SLURM jobs totalling 22.4 GPU-hours**, 53 per-patient result tables, 171 statistical tests, 29 figures.
 
 \newpage
 
@@ -158,6 +158,8 @@ Both outputs are normalized to unit length, so a dot product between them *is* a
 
 **Why the asymmetry?** A whole ResNet on one side, a single linear layer on the other. Because of anisotropy: the frozen text encoder gives us four nearly-identical vectors, so the trainable linear layer must do all the separating. **RQ7 later showed it does essentially *all* the work** — you can replace PubMedBERT with random vectors and lose nothing.
 
+![The anisotropy problem, measured. Left: the four class descriptions as PubMedBERT emits them — 0.99 cosine to each other, meaning the frozen biomedical encoder barely tells "enhancing tumor" apart from "no tumor". Centre: the same four after the trained linear head, which is where the separation comes from. Right, looking ahead to RQ7: each text condition we later substituted, ordered by that same statistic — the three conditions that keep PubMedBERT's geometry are noise regardless of what they mean, and the one that discards it is the only one that reliably costs anything.](figures/fig_anisotropy.png){width=100%}
+
 **`dataset.py`** (102 lines) — serves training patches. Contains `region_mask()`, the single definition of ET/TC/WT used by every other file in the project. Defining it once matters: if two scripts disagreed about what "tumor core" means, every cross-experiment comparison would be silently wrong.
 
 ## 3.3 Localization — and a design dead-end avoided
@@ -244,8 +246,8 @@ The standard remedy, and what the course guidelines ask for: run the *same setup
 
 | Region | Small | Medium | Large | Large/Small |
 |---|---|---|---|---|
-| ET | 0.010 | 0.037 | 0.149 | **14.9×** |
-| TC | 0.019 | 0.059 | 0.176 | **9.3×** |
+| ET | 0.010 | 0.037 | 0.149 | **15.0×** |
+| TC | 0.019 | 0.059 | 0.176 | **9.2×** |
 | WT | 0.057 | 0.137 | 0.281 | **4.9×** |
 
 **The control that matters.** Dice punishes small targets for everyone, so we compare **lift over chance**:
@@ -257,6 +259,8 @@ The standard remedy, and what the course guidelines ask for: run the *same setup
 | WT | 6.6× | 6.7× | 7.9× |
 
 Lift is roughly **constant** across sizes. The careful reading: the model isn't disproportionately losing signal on small lesions *relative to chance*; what collapses is **absolute usability**. A consistent 7–13× advantage over random guessing still isn't enough to be clinically useful when the target is small.
+
+![The control in both halves. Left: model against chance on a log axis — both fall with lesion size, because that is Dice's geometric bias showing up even in a predictor with no information at all. Right: the ratio between them, which is what isolates the model, and it is flat.](figures/fig_lift_over_chance.png){width=100%}
 
 **Replication.** Retrained on two more splits (`train_baseline_seed1/2.sbatch`). The monotonic small < medium < large pattern held in **9 of 9** region×bin comparisons.
 
@@ -285,6 +289,8 @@ Lift is roughly **constant** across sizes. The careful reading: the model isn't 
 **Result: mostly hurt.** 1 of 9 bins improved, 5 got significantly worse.
 
 **Why.** Taking a maximum across scales means the *noisiest* scale wins at every voxel. The model was never trained to produce comparable scores at 16³ and 64³, so their outputs aren't on the same footing — the max just amplifies whichever is loudest.
+
+![Orange = significantly worse after correction, grey = no significant change, blue = the single improvement, which is also the smallest bar on the chart. Note that the damage grows with lesion size inside every region — the signature of a max operation importing noise from a scale the model can't read.](figures/fig_rq3_multiscale.png){width=95%}
 
 ## RQ3b — Isolate one smaller window
 
@@ -316,6 +322,8 @@ Lift is roughly **constant** across sizes. The careful reading: the model isn't 
 
 **Result: better classification, worse localization.** Accuracy rose to 0.668 (vs RQ2's 0.552), but localization got **significantly worse in all 9 bins** (p<0.0001 throughout).
 
+![The dissociation across every training-side arm, not just RQ4. Left: all five arms learn their objective, well above their own chance level. Right: best accuracy (as lift over each arm's own chance, so 4-way and 10-way objectives are comparable) against pooled localization Dice — the relationship runs the wrong way. The arm that classifies best localizes worst. Selecting a model on its training objective was actively misleading here.](figures/fig_accuracy_vs_localization.png){width=100%}
+
 **We tested why rather than speculating.** `test_rq4_shortcut_hypothesis.py` fed **pure random noise** — zero anatomy — through the same three crop-and-resize pipelines:
 
 | Noise pipeline | Similarity to its own size-text |
@@ -341,8 +349,10 @@ One-way ANOVA: **F = 59,672, p ≈ 4×10⁻²⁵¹**. Near-total separation on i
 **Result: partial success, verified in three parts.**
 
 1. Embeddings genuinely separated (`test_rq6_hub_bias.py`): pairwise similarities now range −0.51 to +0.39, no longer collapsed.
-2. **2 of 3** shortcut behaviours fixed — the medium and large pipelines now prefer their own labels; the small pipeline still wrongly prefers "large."
+2. **2 of 3** shortcut behaviours fixed — the medium and large pipelines now prefer their own labels; the small pipeline still wrongly prefers "large." (Under RQ4 the large-crop pipeline also happened to prefer "large", but only because *every* pipeline did — that is the hub, not scale recognition, so it does not count as a third fix being undone.)
 3. Beat RQ4 in **all 9** bins — but still **below the plain baseline in 7 of 9**.
+
+![All three parts of that verification in one figure. Left: the uniformity term over training, falling from RQ4's collapsed ~0.97 to −0.10 in five epochs and staying there. Centre: the noise probe re-run, with a tick where a pipeline's own label wins. Right: what it bought — green arrows show RQ6 beating RQ4 in every bin, and the blue baseline bars show it still isn't enough.](figures/fig_rq6_uniformity.png){width=100%}
 
 **Honest verdict:** a real, measurable, partial repair that still doesn't beat doing nothing.
 
@@ -387,11 +397,15 @@ Otsu returns a near-constant 8–15% of the brain regardless of target size. Wor
 
 Honest headline: **2.4–14.4×**, not 5–15×.
 
+![All five binarization rules at once. The small < medium < large ordering holds under every rule, so the collapse itself is not manufactured by Otsu — but the gap between the orange Otsu bar and the green oracle bar is what the thresholding step cost us, and it is paired-significant in eight of nine bins. ET-small is the one exception, and that exception is itself a finding: there the heatmap's ranking is bad, so no cut point can rescue it.](figures/fig_threshold_ladder.png){width=100%}
+
 **Result 3 — the pointing game finds where the real failure lives.** Chance-corrected accuracy is roughly uniform at 46–122× chance everywhere — with one stark exception:
 
 > **Small enhancing tumor: the model's peak response lands inside the true lesion in 0 of 21 patients.** Exactly chance. Median distance to the nearest lesion voxel: 23.7 mm.
 
 That is not a boundary-drawing failure. The model is not pointing at the lesion at all. It is the sharpest single statement this project can make.
+
+![What that hit rate is summarising. Each dot is one patient's distance from the peak response to the nearest lesion voxel. ET-small at 32³ (orange, left panel) has almost no mass at zero — the failure is a distribution sitting far from the lesion, not a set of near misses. The blue series is the 8³ window, previewing RQ12: it pulls enhancing tumor toward zero everywhere and pushes tumor core sharply away.](figures/fig_pointing_distance.png){width=100%}
 
 ![The pointing game across every region and size bin, at both window sizes, against each bin's own chance level (black dashes, all below 2%). Every bar clears chance comfortably except ET-small at 32³, which is exactly zero — 0 hits in 21 patients. The 8³ window is the only intervention that moves it, at the cost of tumor core.](figures/fig_pointing_game.png){width=100%}
 
@@ -464,6 +478,8 @@ Every manipulation stays above **0.94 cosine** after the very layer supposed to 
 
 **Embedding distance doesn't predict behaviour change** (ρ = +0.41, p = 0.19). If the embedding carried graded meaning, moving it further should change behaviour more. It doesn't.
 
+![Left: all 12 condition×region cells — how far the manipulation moved the query, against how much it changed localization. A model reading meaning would sit on a rising line. Right: the signed change per cell; the two green bars are the ones that should not exist, where a wrong-region term and contentless filler both beat the true clinical description on whole tumor.](figures/fig_rq8_embedding_vs_behavior.png){width=100%}
+
 **Conclusion.** The text query functions as an **opaque class identifier that happens to be spelled in English**. This also explains RQ5's null far better than "the finding is robust to phrasing": no phrasing change matters much when the pathway is a lookup, not a parse.
 
 ![Destroying the query's meaning barely moves the model's spatial response.](figures/fig_rq8_compositionality.png){width=98%}
@@ -525,6 +541,8 @@ Covered in full in Part 5.3, since it is a correction story. Summary of the fina
 | **RQ2** | **+0.023** (p=8×10⁻¹⁷) | −0.001 | −0.004 | +0.006 (n.s.) | +0.000 (n.s.) |
 | RQ4 | −0.038 | −0.007 | −0.024 | −0.032 | −0.024 |
 | RQ6 | −0.023 | −0.008 | −0.036 | −0.060 | −0.040 |
+
+![Left: each arm's pooled change against the baseline under all five rules. RQ2's verdict depends entirely on which bar you read; RQ4's and RQ6's do not. Right: RQ2 per region — whole tumor does not merely shrink under the deployable top-1% rule, it changes sign.](figures/fig_rq13_arms.png){width=100%}
 
 **RQ2's improvement is an artifact.** Under every calibrated rule it vanishes. Size-conditioned prompting does not improve localization; it produces a heatmap Otsu happens to binarize favourably. Its *negative* half (worsens small ET) is unaffected.
 
@@ -601,7 +619,7 @@ Also: **a single control is not a verdict.** Version 2 above *was* a control, an
 
 # Part 6 — Complete inventory
 
-## 6.1 Every Python file (57 files, 8,103 lines)
+## 6.1 Every Python file (58 files, 8,986 lines)
 
 **Data pipeline**
 
@@ -625,13 +643,13 @@ Also: **a single control is not a verdict.** Version 2 above *was* a control, an
 
 **Training (7 files)** — `train_baseline.py` (118), `train_rq2.py` (128), `train_rq4.py` (128), `train_rq5.py` (128), `train_rq6.py` (146), `train_rq7.py` (152), `train_pprime_supervised.py` (195)
 
-**Evaluation (14 files)** — `evaluate_rq1.py` (185, defines the shared metrics), `evaluate_rq2.py` (121), `evaluate_rq3_multiscale.py` (113), `evaluate_rq3b_scale16_only.py` (73), `evaluate_window_sweep.py` (86), `evaluate_rq4.py` (126), `evaluate_rq5.py` (112), `evaluate_rq6.py` (124), `evaluate_rq6_single_scale.py` (113), `evaluate_rq7.py` (119), `evaluate_rq8_compositionality.py` (193), `evaluate_rq11_threshold_confound.py` (234), `evaluate_grounding_sweep.py` (195), `evaluate_ablation_thresholds.py` (190), `evaluate_pprime_supervised.py` (118)
+**Evaluation (15 files)** — `evaluate_rq1.py` (185, defines the shared metrics), `evaluate_rq2.py` (121), `evaluate_rq3_multiscale.py` (113), `evaluate_rq3b_scale16_only.py` (73), `evaluate_window_sweep.py` (86), `evaluate_rq4.py` (126), `evaluate_rq5.py` (112), `evaluate_rq6.py` (124), `evaluate_rq6_single_scale.py` (113), `evaluate_rq7.py` (119), `evaluate_rq8_compositionality.py` (193), `evaluate_rq11_threshold_confound.py` (234), `evaluate_grounding_sweep.py` (195), `evaluate_ablation_thresholds.py` (190), `evaluate_pprime_supervised.py` (118)
 
 **Diagnostics (4 files)** — `compute_chance_baseline.py` (60), `sanity_check_localize.py` (72), `test_rq4_shortcut_hypothesis.py` (102), `test_rq6_hub_bias.py` (75)
 
-**Analysis (9 files)** — `analyze_full_family.py` (267, all 171 tests + BH), `analyze_seed_replication.py` (209), `analyze_rq7.py` (251), `analyze_rq7_multiseed.py` (180), `analyze_rq8.py` (184), `analyze_rq11.py` (147), `analyze_rq12.py` (254), `analyze_rq13.py` (141), `analyze_all_comparisons.py` (109), `analyze_results.py` (71)
+**Analysis (10 files)** — `analyze_full_family.py` (267, all 171 tests + BH), `analyze_seed_replication.py` (209), `analyze_rq7.py` (251), `analyze_rq7_multiseed.py` (180), `analyze_rq8.py` (184), `analyze_rq11.py` (147), `analyze_rq12.py` (254), `analyze_rq13.py` (141), `analyze_all_comparisons.py` (109), `analyze_results.py` (71)
 
-**Figures (11 files)** — `make_figures.py` (107), `make_overlay_figure.py` (67), `generate_example_heatmaps.py` (51), `make_figure4_scale_comparison.py` (71), `make_figure5_window_curve.py` (68), `make_figure_architecture.py` (106), `make_figure_leaderboard.py` (70), `make_figure_roadmap.py` (145), `make_figure_significance_heatmap.py` (105), `make_figures_rq7_rq8_rq12.py` (265), `make_figures_dataset_and_evidence.py` (463)
+**Figures (12 files)** — `make_figures.py` (107), `make_overlay_figure.py` (67), `generate_example_heatmaps.py` (51), `make_figure4_scale_comparison.py` (71), `make_figure5_window_curve.py` (68), `make_figure_architecture.py` (106), `make_figure_leaderboard.py` (70), `make_figure_roadmap.py` (145), `make_figure_significance_heatmap.py` (105), `make_figures_rq7_rq8_rq12.py` (265), `make_figures_dataset_and_evidence.py` (463), `make_figures_supplementary.py` (883)
 
 ## 6.2 Cluster jobs — 111 SLURM jobs, 22.4 GPU-hours
 
@@ -639,7 +657,7 @@ Notable runtimes: baseline training 24m · P′ training 37m · RQ3b eval 19m ·
 
 **Development discipline:** every experiment was smoke-tested on the 10-minute `dev` partition before submitting a real job (12 `smoke_test_*.sbatch` scripts). This caught several bugs that would otherwise have wasted hours of queue time. Eight RQ7 seed jobs failed on first submission (a bad argument) and were caught in 8 seconds each because of it.
 
-## 6.3 Figures (20)
+## 6.3 Figures (29)
 
 **Dataset (2):** `fig_dataset_split` · `fig_dataset_volumes`
 
@@ -647,7 +665,21 @@ Notable runtimes: baseline training 24m · P′ training 37m · RQ3b eval 19m ·
 
 **Evidence for specific claims (8):** `fig_rq7_encoder` · `fig_rq8_compositionality` · `fig_rq12_threshold_reversal` · `fig_rq12_window_curve` · `fig_otsu_calibration` · `fig_pointing_game` · `fig_seed_replication` · `fig_shortcut_probe`
 
-Every figure regenerates from the result CSVs; none was drawn by hand. Colours use the Okabe-Ito colourblind-safe palette, verified computationally (all pairs clear ΔE ≥ 8 under simulated protanopia and deuteranopia).
+**Evidence for claims that had been tables only (9, `make_figures_supplementary.py`):**
+
+| Figure | The claim it carries | Where |
+|---|---|---|
+| `fig_anisotropy` | the four class descriptions at 0.99 cosine before the projection, spread after it; every RQ7 condition by its geometry | §5, §7.8 |
+| `fig_lift_over_chance` | model against the random-heatmap control, and the flat lift ratio | §6.2 |
+| `fig_threshold_ladder` | the collapse under all five binarizers, with the Otsu→oracle cost per bin | §6.3 |
+| `fig_pointing_distance` | the peak-to-lesion distances behind the median column, both window sizes | §6.3, §7.11 |
+| `fig_rq3_multiscale` | naive ensembling: 1 bin better, 5 significantly worse | §7.2 |
+| `fig_accuracy_vs_localization` | every arm's training curve, and accuracy plotted against localization | §7.5 |
+| `fig_rq6_uniformity` | the uniformity repair verified in all three of its parts | §7.6 |
+| `fig_rq8_embedding_vs_behavior` | displacement against behavioural change (ρ=+0.41, p=0.19) | §7.9 |
+| `fig_rq13_arms` | the three retrained arms re-scored under every rule | §7.12 |
+
+Every figure regenerates from the result CSVs and training logs; none was drawn by hand. Colours use the Okabe-Ito colourblind-safe palette, verified computationally (all pairs clear ΔE ≥ 8 under simulated protanopia and deuteranopia).
 
 ![Every method's mean Dice, one panel per region. Otsu-scored — see Part 5.](figures/fig_leaderboard.png){width=98%}
 
@@ -682,7 +714,7 @@ One row per (patient, region) with Dice, IoU, size bin and true volume. Naming: 
 5. **Baseline** — `train_baseline.py` (add `--seed 1` / `--seed 2` for replications)
 6. **Experiments** — each `train_rqN.py` / `evaluate_rqN.py` with its matching `slurm/*.sbatch`. Smoke-test on `dev` first.
 7. **Statistics** — `analyze_full_family.py` reproduces all 171 tests with BH correction
-8. **Figures** — the ten `make_figure*.py` scripts
+8. **Figures** — the twelve figure scripts; `make_figures_supplementary.py` last, since it reads the RQ11/RQ12/RQ13 CSVs and the training logs
 9. **Report** — `pandoc report_draft.md -o report_draft.pdf --pdf-engine=xelatex -V mainfont="DejaVu Serif" --toc`
 
 **Repository:** [github.com/rajhansini/Diagnosing-Small-Lesion-Grounding-Failure-in-Text-Conditioned-3D-Medical-Localization](https://github.com/rajhansini/Diagnosing-Small-Lesion-Grounding-Failure-in-Text-Conditioned-3D-Medical-Localization)
@@ -691,7 +723,7 @@ One row per (patient, region) with Dice, IoU, size bin and true volume. Naming: 
 
 # Closing summary
 
-**What was built.** A complete text-conditioned 3D localization pipeline: preprocessing, contrastive alignment, sliding-window localization, five binarization rules, two localization metrics, and a nine-tool diagnostic layer — 56 files, 7,640 lines, 111 cluster jobs.
+**What was built.** A complete text-conditioned 3D localization pipeline: preprocessing, contrastive alignment, sliding-window localization, five binarization rules, two localization metrics, and a nine-tool diagnostic layer — 58 files, 8,986 lines, 111 cluster jobs, 29 figures.
 
 **What was found.**
 

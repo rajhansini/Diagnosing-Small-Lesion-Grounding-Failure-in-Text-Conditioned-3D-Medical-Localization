@@ -26,12 +26,14 @@ Four measurement controls sit underneath every claim: a **chance-level random-he
 
 **Two documents:**
 
-- [`report_draft.pdf`](report_draft.pdf) — the final report, written as a short research paper (35 pp).
-- [`work_log.pdf`](work_log.pdf) — a complete companion account (26 pp): every one of the fifteen experiments in the order they happened, every script that produced every number, all 14 figures, and a plain-language primer that assumes no background in medical imaging, contrastive learning or the statistics used. Also documents the five conclusions this project had to reverse, and how each was caught.
+- [`report_draft.pdf`](report_draft.pdf) — the final report, written as a short research paper (40 pp).
+- [`work_log.pdf`](work_log.pdf) — a complete companion account: every one of the fifteen experiments in the order they happened, every script that produced every number, and a plain-language primer that assumes no background in medical imaging, contrastive learning or the statistics used. Also documents the five conclusions this project had to reverse, and how each was caught.
+
+Between them the two documents carry all 29 figures; [`figures/README.md`](figures/README.md) maps each one to the claim it supports and the script that draws it.
 
 ## Repository layout
 
-- `src/` — all code (57 files, 8,103 lines). See [`src/README.md`](src/README.md) for a file-by-file breakdown with line counts.
+- `src/` — all code (58 files, 8,986 lines). See [`src/README.md`](src/README.md) for a file-by-file breakdown with line counts.
 - `slurm/` — SLURM batch scripts for every training and evaluation job. See [`slurm/README.md`](slurm/README.md).
 - `results/` — per-patient CSV outputs from every evaluation run. See [`results/README.md`](results/README.md) for the schema.
 - `figures/` — generated report figures. See [`figures/README.md`](figures/README.md).
@@ -53,7 +55,7 @@ Not included in this repo (see below for how to regenerate):
 6. **Run the P′ check**: `python src/train_pprime_supervised.py` then `python src/evaluate_pprime_supervised.py` — validates the shared pipeline against published BraTS Dice before any result downstream is trusted.
 7. **Run RQ1 through RQ12**: see the corresponding `train_rqN.py` / `evaluate_rqN.py` scripts and their matching `slurm/*.sbatch` files. Smoke-test each on the `dev` partition first (`slurm/smoke_test_*.sbatch`).
 8. **Statistical analysis**: `python src/analyze_full_family.py` reproduces all 171 paired significance tests with BH-FDR correction under both pooled and per-RQ families. `analyze_seed_replication.py` and `analyze_rq7_multiseed.py` do the cross-run replication checks; `analyze_rq11.py` and `analyze_rq12.py` the threshold and grounding decompositions.
-9. **Figures**: `python src/make_figures.py`, then `make_figure4_scale_comparison.py`, `make_overlay_figure.py`, `make_figure5_window_curve.py`, `make_figure_architecture.py`, `make_figure_leaderboard.py`, `make_figure_roadmap.py`, `make_figure_significance_heatmap.py`, `make_figures_rq7_rq8_rq12.py`.
+9. **Figures**: `python src/make_figures.py`, then `make_figure4_scale_comparison.py`, `make_overlay_figure.py`, `make_figure5_window_curve.py`, `make_figure_architecture.py`, `make_figure_leaderboard.py`, `make_figure_roadmap.py`, `make_figure_significance_heatmap.py`, `make_figures_dataset_and_evidence.py`, `make_figures_rq7_rq8_rq12.py`, and `make_figures_supplementary.py` last (it reads the RQ11/RQ12/RQ13 CSVs and the training logs). All 29 figures regenerate from `results/` and `logs/`; none is drawn by hand.
 10. **Build the report**: `pandoc report_draft.md -o report_draft.pdf --pdf-engine=xelatex -V geometry:margin=1in -V fontsize=10pt -V mainfont="DejaVu Serif" -V monofont="DejaVu Sans Mono" --toc` (DejaVu is needed for the Unicode maths and Greek in the text).
 
 ## Attribution
