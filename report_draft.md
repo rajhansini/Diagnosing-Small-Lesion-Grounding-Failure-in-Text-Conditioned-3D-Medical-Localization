@@ -406,7 +406,9 @@ This means ensembling across scales is not inherently harmful, as RQ3 seemed to 
 
 All of RQ1/RQ2's text was templated, textbook-style description. To rule out the entire size-collapse finding being some artifact of that specific phrasing, we rewrote the four base descriptions in naturalistic, radiology-report style (hedged, varied syntax — e.g. *"Post-contrast T1-weighted images demonstrate irregular nodular enhancement, favoring viable, high-grade tumor tissue"* rather than *"Enhancing tumor: region of active contrast enhancement..."*), retrained from scratch, and re-ran the identical RQ1 evaluation protocol.
 
-Result: **essentially no difference.** 8 of 9 region×bin comparisons show no significant difference from the original templated-text RQ1 (paired Wilcoxon, all p>0.07), and Spearman correlation between Dice and log-volume is nearly identical (ρ=0.958 templated vs. 0.959 naturalistic). The one significant difference (TC large, p=0.0035) is a small improvement, not a concern. This is a clean replication: the small-lesion grounding failure is a property of the model/task, not an artifact of using templated rather than naturalistic language.
+Result on this single run: **essentially no difference.** 8 of 9 region×bin comparisons show no significant difference from the original templated-text RQ1 (paired Wilcoxon, all p>0.07), and Spearman correlation between Dice and log-volume is nearly identical (ρ=0.958 templated vs. 0.959 naturalistic). The one significant difference (TC large, p=0.0035) is a small improvement.
+
+> **This conclusion is partly revised in Section 7.10.** Retrained under three seeds, naturalistic text is consistently *better* than templated (+0.040 pooled Dice, positive in all three runs), so "no difference" was a seed-0 artifact and this is a weaker robustness check than it appears here. What survives is the part that matters for the paper: the size collapse persists under naturalistic text in every seed, so the finding is not a templating artifact.
 
 ### 7.8 RQ7: Does the text encoder contribute anything at all?
 
