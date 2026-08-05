@@ -1,4 +1,9 @@
-"""P' baseline: train image/text projections via 4-way (ET/TC/WT/NONE) contrastive classification on 3D patches."""
+"""Alignment baseline (RQ1): train image/text projections via 4-way (ET/TC/WT/NONE) contrastive
+classification on 3D patches. Every text-conditioned result in the report builds on this model.
+
+Naming note: earlier drafts called this "P'". That label now refers to the supervised segmentation
+reference in train_pprime_supervised.py -- the previously-studied problem used to validate that the
+shared data/split/metric pipeline is sound, which is what P' conventionally denotes."""
 import argparse
 import os
 import random

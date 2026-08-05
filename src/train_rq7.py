@@ -1,4 +1,4 @@
-"""RQ7: train the P' baseline with the text encoder swapped out, holding everything else fixed.
+"""RQ7: train the alignment baseline with the text encoder swapped out, holding everything else fixed.
 
 Identical to train_baseline.py in every respect -- same 3D ResNet-10 volume encoder, same 32^3
 patch sampling, same contrastive objective, same temperature, same optimizer, same 30 epochs,

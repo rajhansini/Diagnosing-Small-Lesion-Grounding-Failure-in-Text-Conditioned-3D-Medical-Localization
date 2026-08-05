@@ -14,3 +14,6 @@ __pycache__/
 
 # Pandoc/LaTeX build artifacts
 tex2pdf.*
+
+# Personal study notes, not part of the submission
+DEFENSE_NOTES.md

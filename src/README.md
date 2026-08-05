@@ -2,7 +2,7 @@
 
 **Attribution.** Every file below was written by me for this project. None contains code copied from another project, another assignment, or a third-party codebase. Third-party libraries (PyTorch, MONAI, Hugging Face Transformers, scikit-image, SciPy, matplotlib) and the pretrained PubMedBERT weights are used through their public APIs and package installs; nothing is vendored into this repository.
 
-**Totals: 54 files, 7,297 lines.** Line counts below are `wc -l` including docstrings and comments.
+**Totals: 56 files, 7,640 lines.** Line counts below are `wc -l` including docstrings and comments.
 
 Run order for a full reproduction is documented in the [root README](../README.md).
 
@@ -58,6 +58,7 @@ Run order for a full reproduction is documented in the [root README](../README.m
 | `evaluate_rq11_threshold_confound.py` | 234 | RQ11: recomputes each heatmap once and scores it under five binarization rules plus the pointing game, decomposing the collapse into grounding and thresholding. |
 | `evaluate_grounding_sweep.py` | 195 | RQ12: generalizes RQ11 to any window size, with a **tie-aware** pointing metric. At window 32 it must reproduce RQ11's CSV — an end-to-end correctness gate. |
 | `evaluate_pprime_supervised.py` | 118 | Scores the P′ segmenter against published BraTS Dice ranges and by the project's own size terciles. |
+| `evaluate_ablation_thresholds.py` | 190 | RQ13: re-scores the retrained arms (RQ2/RQ4/RQ6) under all five binarizers, reproducing each arm's published ensemble heatmap construction exactly. |
 
 ## Diagnostics and controls
 
@@ -78,7 +79,8 @@ Run order for a full reproduction is documented in the [root README](../README.m
 | `analyze_rq7_multiseed.py` | 180 | RQ7 across three seeds. Exposes the pseudo-replication in the single-seed p-values. |
 | `analyze_rq8.py` | 184 | RQ8: how far each manipulation moves the query versus how far it moves behaviour. |
 | `analyze_rq11.py` | 147 | RQ11: threshold calibration, the cost of the Otsu step, and the pointing game vs. chance. |
-| `analyze_rq12.py` | 215 | RQ12: the tie artifact, the pointing comparison across window sizes, and whether the smaller window's Dice win survives a better binarizer. |
+| `analyze_rq12.py` | 254 | RQ12: the tie artifact, the pointing comparison across window sizes, the overlap contrast, and whether the smaller window's Dice win survives a better binarizer. |
+| `analyze_rq13.py` | 141 | RQ13: whether the retrained arms' Section 7 verdicts survive a calibrated threshold, with a reproduction gate on the Otsu column. |
 | `analyze_all_comparisons.py` | 109 | Earlier consolidated statistics script, superseded by `analyze_full_family.py` but retained because Sections 7.1–7.6 were first computed with it. |
 | `analyze_results.py` | 71 | Early-stage stats: Spearman correlation and lift over chance for RQ1. |
 

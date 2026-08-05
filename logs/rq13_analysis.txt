@@ -1,0 +1,48 @@
+====================================================================================================
+RQ13: do the retrained ablations' Section 7 verdicts survive a calibrated threshold?
+====================================================================================================
+
+[A] CORRECTNESS GATE: does the re-scored Otsu column reproduce the published CSV?
+    Pass criterion is the pooled mean (what Section 7 reports); bit-exact % is a diagnostic.
+    Otsu picks its cut from a 256-bin histogram, so a tie at the cut point can move a few
+    voxels under GPU float non-determinism; these arms max over three heatmaps, which
+    gives more opportunities for such a tie than the single-query baseline had.
+    arm                                 n  bit-exact    max|Δ|   pooled Δ  verdict
+    RQ2 (size-conditioned text)       213     97.7%  4.96e-03   2.89e-05  PASS
+    RQ4 (scale-matched)               213     96.7%  2.17e-04   2.01e-06  PASS
+    RQ6 (uniformity fix)              213     93.0%  8.44e-03   3.44e-05  PASS
+
+[B] ARM vs. RQ1 BASELINE UNDER EACH BINARIZER (pooled over regions and bins)
+  arm                             binarizer          base     arm    delta          p  verdict
+  RQ2 (size-conditioned text)     otsu             0.0972  0.1199  +0.0227   8.47e-17  better
+  RQ2 (size-conditioned text)     pct90            0.1034  0.1029  -0.0005   1.27e-02  ~equal   <-- DISAGREES with the Otsu verdict
+  RQ2 (size-conditioned text)     pct95            0.1774  0.1732  -0.0042   5.61e-02  worse   <-- DISAGREES with the Otsu verdict
+  RQ2 (size-conditioned text)     pct99            0.2968  0.3024  +0.0055   1.11e-01  better
+  RQ2 (size-conditioned text)     oracle_volume    0.3085  0.3089  +0.0003   6.66e-01  ~equal   <-- DISAGREES with the Otsu verdict
+
+  RQ4 (scale-matched)             otsu             0.0972  0.0597  -0.0376   8.96e-35  worse
+  RQ4 (scale-matched)             pct90            0.1034  0.0960  -0.0074   5.44e-27  worse
+  RQ4 (scale-matched)             pct95            0.1774  0.1534  -0.0240   1.97e-25  worse
+  RQ4 (scale-matched)             pct99            0.2968  0.2652  -0.0316   1.03e-02  worse
+  RQ4 (scale-matched)             oracle_volume    0.3085  0.2844  -0.0242   1.11e-01  worse
+
+  RQ6 (uniformity fix)            otsu             0.0972  0.0741  -0.0231   2.63e-17  worse
+  RQ6 (uniformity fix)            pct90            0.1034  0.0954  -0.0080   5.48e-28  worse
+  RQ6 (uniformity fix)            pct95            0.1774  0.1418  -0.0355   3.23e-28  worse
+  RQ6 (uniformity fix)            pct99            0.2968  0.2369  -0.0599   3.26e-04  worse
+  RQ6 (uniformity fix)            oracle_volume    0.3085  0.2681  -0.0404   3.61e-02  worse
+
+[C] PER REGION, calibrated rule (top 1%) vs. the published Otsu verdict
+  arm                             region     otsu Δ   pct99 Δ   same sign?
+  RQ2 (size-conditioned text)     ET        +0.0140   +0.0227   yes
+  RQ2 (size-conditioned text)     TC        +0.0383   +0.0282   yes
+  RQ2 (size-conditioned text)     WT        +0.0150   -0.0330   NO
+
+  RQ4 (scale-matched)             ET        -0.0373   -0.0885   yes
+  RQ4 (scale-matched)             TC        -0.0342   +0.0292   NO
+  RQ4 (scale-matched)             WT        -0.0412   -0.0402   yes
+
+  RQ6 (uniformity fix)            ET        -0.0342   -0.0292   yes
+  RQ6 (uniformity fix)            TC        -0.0226   +0.0192   NO
+  RQ6 (uniformity fix)            WT        -0.0134   -0.1673   yes
+

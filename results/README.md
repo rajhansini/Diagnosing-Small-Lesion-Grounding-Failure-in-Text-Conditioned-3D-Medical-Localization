@@ -36,6 +36,7 @@ Patients whose region volume is 0 are omitted (27 of 369 have no enhancing tumor
 | `rq11_threshold_confound_scores.csv` | `evaluate_rq11_threshold_confound.py` | Five binarization rules per patient (`threshold_method` column) plus predicted-volume and pointing-game columns. |
 | `rq12_grounding_window{W}_stride{S}_scores.csv` | `evaluate_grounding_sweep.py` | As RQ11 but across the window sweep, with tie-aware pointing columns (`peak_tie_count`, `centroid_hit`, `any_tied_hit`). **Stride is in the filename deliberately**: the original sweep switched from 50%-overlap to non-overlapping tiling partway down, so (window, stride) are distinct conditions and a window-only name would silently overwrite one with the other. Conditions: 32/16, 16/8, 12/6, 8/4, 8/8, 6/6. |
 | `pprime_supervised_scores.csv` | `evaluate_pprime_supervised.py` | The supervised P′ reference, same schema, same metric. |
+| `rq13_{rq2,rq4,rq6}_thresholds_scores.csv` | `evaluate_ablation_thresholds.py` | The retrained arms re-scored under all five binarizers, with the same tie-aware pointing columns as RQ12. |
 | `full_family_statistics.csv` | `analyze_full_family.py` | **Derived, not raw**: all 171 paired tests with raw p, BH q-values under both correction schemes, effect sizes and bootstrap CIs. |
 
 ## Reading notes

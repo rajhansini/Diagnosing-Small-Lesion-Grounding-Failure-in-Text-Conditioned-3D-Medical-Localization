@@ -1,4 +1,4 @@
-"""RQ5: same P' baseline training as RQ1, but using naturalistic radiology-report-style text
+"""RQ5: same alignment-baseline training as RQ1, but using naturalistic radiology-report-style text
 descriptions instead of textbook-style templates -- tests whether the size-collapse finding
 generalizes beyond templated language."""
 import argparse
