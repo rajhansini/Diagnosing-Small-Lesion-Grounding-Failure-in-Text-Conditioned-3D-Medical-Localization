@@ -24,7 +24,10 @@ Four measurement controls sit underneath every claim: a **chance-level random-he
 
 **The methodological result is the transferable one.** Five conclusions here were overturned or materially qualified *after* being written up, by controls rather than by significance tests — including twice within one section, in opposite directions, once a confound between window size and tiling convention was removed. The lesson: **a shared confound is not a cancelled confound.** Every comparison used one binarizer, which we argued made them internally fair; Otsu and every calibrated rule turn out to disagree in *sign* about the same pair of heatmaps, so arms that interact differently with a shared instrument can be ranked backwards by it — invisibly to any amount of paired testing or FDR correction.
 
-Full writeup: [`report_draft.pdf`](report_draft.pdf) / [`report_draft.md`](report_draft.md).
+**Two documents:**
+
+- [`report_draft.pdf`](report_draft.pdf) — the final report, written as a short research paper (35 pp).
+- [`work_log.pdf`](work_log.pdf) — a complete companion account (26 pp): every one of the fifteen experiments in the order they happened, every script that produced every number, all 14 figures, and a plain-language primer that assumes no background in medical imaging, contrastive learning or the statistics used. Also documents the five conclusions this project had to reverse, and how each was caught.
 
 ## Repository layout
 
@@ -33,6 +36,7 @@ Full writeup: [`report_draft.pdf`](report_draft.pdf) / [`report_draft.md`](repor
 - `results/` — per-patient CSV outputs from every evaluation run. See [`results/README.md`](results/README.md) for the schema.
 - `figures/` — generated report figures. See [`figures/README.md`](figures/README.md).
 - `report_draft.md` / `report_draft.pdf` — the final report.
+- `work_log.md` / `work_log.pdf` — the complete work log and plain-language companion.
 
 Not included in this repo (see below for how to regenerate):
 - `data/` — BraTS2020 raw + preprocessed volumes (~12GB).
