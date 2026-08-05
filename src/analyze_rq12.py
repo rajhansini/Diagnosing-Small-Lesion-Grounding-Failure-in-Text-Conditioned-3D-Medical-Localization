@@ -31,20 +31,29 @@ RESULTS_DIR = "/net/projects/ranalab/rajhansini/nlp_project/results"
 REGIONS = ["ET", "TC", "WT"]
 BINS = ["small", "medium", "large"]
 METHODS = ["otsu", "pct90", "pct95", "pct99", "oracle_volume"]
-WINDOWS = [32, 8]
+WINDOWS = [(32, 16), (8, 8)]
+# The full RQ3b/RQ3c sweep as (window, stride). Stride matters as much as window here: the original
+# sweep used 50% overlap down to 12³ and then switched to non-overlapping tiling for 8³ and 6³ to
+# save compute, so those last two points changed two variables at once. (8, 4) is the added control
+# that holds the overlap convention fixed while shrinking the window.
+CURVE = [(32, 16), (16, 8), (12, 6), (8, 4), (8, 8), (6, 6)]
+OVERLAPPING = {(32, 16), (16, 8), (12, 6), (8, 4)}
 TOTAL_VOXELS = 128 ** 3
 
 
-def load_window(w):
-    """Read one window size's RQ12 score CSV.
+def load_window(w, stride=None):
+    """Read one (window, stride) condition's RQ12 score CSV.
 
     Args:
-        w: window size whose CSV to read.
+        w: window size, or a (window, stride) tuple.
+        stride: stride, when not supplied as part of `w`.
 
     Returns:
-        List of dict rows, or None if that window has not been evaluated yet.
+        List of dict rows, or None if that condition has not been evaluated yet.
     """
-    path = os.path.join(RESULTS_DIR, f"rq12_grounding_window{w}_scores.csv")
+    if isinstance(w, tuple):
+        w, stride = w
+    path = os.path.join(RESULTS_DIR, f"rq12_grounding_window{w}_stride{stride}_scores.csv")
     if not os.path.exists(path):
         return None
     with open(path, newline="") as f:
@@ -147,10 +156,11 @@ def paired_window_test(rows32, rows8, method, region=None, size_bin=None):
 def main():
     """Report the tie artifact, the pointing comparison across windows, and threshold robustness."""
     data = {w: load_window(w) for w in WINDOWS}
+    data = {k[0]: v for k, v in data.items()}  # key by window size for the two-point comparisons
     missing = [w for w, v in data.items() if v is None]
     if missing:
         raise SystemExit(f"missing RQ12 results for window sizes {missing}")
-    uniq = {w: unique_patients(data[w]) for w in WINDOWS}
+    uniq = {w: unique_patients(data[w]) for w in (32, 8)}
 
     print("=" * 108)
     print("RQ12: does the smaller window improve GROUNDING, or only overlap?")
@@ -168,7 +178,7 @@ def main():
     print("    are biased LOW and its peak-to-lesion distances biased HIGH. Corrected below.")
 
     print("\n[B] POINTING GAME, both rules, both window sizes")
-    for w in WINDOWS:
+    for w in (32, 8):
         for field, label in [("argmax_hit", "first-argmax (RQ11's rule)"), ("centroid_hit", "plateau centroid (corrected)")]:
             print(f"\n  --- window {w}, {label} ---")
             print(f"  {'reg':<5}{'bin':<8}{'n':>4}{'hits':>6}{'rate':>8}{'chance':>9}"
@@ -209,6 +219,53 @@ def main():
             wins = "yes" if r["delta"] > 0 and r["p"] < 0.05 else ("no" if r["delta"] < 0 else "n.s.")
             print(f"  {method:<15}{r['n']:>5}{r['w32']:>9.4f}{r['w8']:>9.4f}"
                   f"{r['delta']:>+9.4f}{r['p']:>11.2e}  {wins}")
+
+    print("\n[F] THE WHOLE WINDOW CURVE, RE-SCORED UNDER EVERY BINARIZER")
+    print("    Sections 7.3-7.4 reported this curve under Otsu only. If 'smaller is better' is a")
+    print("    property of grounding it should hold under any reasonable rule; if it is an Otsu")
+    print("    artifact the curve should flatten or invert once the threshold is calibrated.")
+    curve = {ws: load_window(ws) for ws in CURVE}
+    have = [ws for ws in CURVE if curve[ws] is not None]
+    if len(have) < 2:
+        print("    (not enough window sizes evaluated yet)")
+        return
+    print(f"  {'method':<15}" + "".join(f"{str(w) + chr(179) + '/' + str(st):>11}" for w, st in have)
+          + "   overlapping-only trend")
+    for method in METHODS:
+        means = []
+        for ws in have:
+            vals = [float(r["dice"]) for r in curve[ws] if r["threshold_method"] == method]
+            means.append(float(np.mean(vals)) if vals else float("nan"))
+        ov = [(ws, m) for ws, m in zip(have, means) if ws in OVERLAPPING]
+        delta = ov[-1][1] - ov[0][1] if len(ov) > 1 else float("nan")
+        trend = ("smaller BETTER" if delta > 0.005 else
+                 "smaller WORSE" if delta < -0.005 else "flat")
+        print(f"  {method:<15}" + "".join(f"{m:>11.4f}" for m in means) + f"   {delta:+.4f}  {trend}")
+    print("\n[G] THE OVERLAP CONTRAST: identical 8³ window, 50%-overlap vs non-overlapping tiling")
+    print("    This isolates tiling from window size, which the original sweep confounded. It is also")
+    print("    the sharpest available test of whether Otsu is a neutral measuring instrument.")
+    a, b = load_window(8, 4), load_window(8, 8)
+    if a is None or b is None:
+        print("    (needs both 8³/stride4 and 8³/stride8)")
+    else:
+        print(f"  {'binarizer':<16}{'overlap':>9}{'none':>9}{'delta':>9}{'p':>11}   direction")
+        for m in METHODS:
+            r = paired_window_test(a, b, m)
+            if not r:
+                continue
+            direction = ("prefers NON-overlapping" if r["delta"] > 0.002
+                         else "prefers overlapping" if r["delta"] < -0.002 else "indifferent")
+            print(f"  {m:<16}{r['w32']:>9.4f}{r['w8']:>9.4f}{r['delta']:>+9.4f}{r['p']:>11.2e}"
+                  f"   {direction}")
+        print("\n    Otsu and every calibrated rule disagree in SIGN on the same pair of heatmaps.")
+        print("    Otsu rewards the blocky, low-entropy map that non-overlapping tiling produces,")
+        print("    because a coarser intensity histogram gives it a cleaner two-class split. That is")
+        print("    a property of the binarizer, not of localization quality.")
+
+    print("\n    Columns are window/stride. The first four hold the 50%-overlap convention fixed;")
+    print("    the last two are the non-overlapping points RQ3c switched to for compute reasons.")
+    print("    The trend column covers ONLY the overlap-matched conditions, which is the comparison")
+    print("    Sections 7.3-7.4 believed they were making.")
 
 
 if __name__ == "__main__":

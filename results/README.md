@@ -34,12 +34,12 @@ Patients whose region volume is 0 are omitted (27 of 369 have no enhancing tumor
 | `rq7_*` (4 conditions × 3 seeds) | `evaluate_rq7.py` | Text-encoder ablations: BERT-base, random-init BERT, random orthonormal, random-at-PubMedBERT-geometry. |
 | `rq8_compositionality_scores.csv` | `evaluate_rq8_compositionality.py` | Five probe conditions in one file, distinguished by a `condition` column. Adds `heatmap_spearman_vs_original` and `proj_cosine_vs_original`. |
 | `rq11_threshold_confound_scores.csv` | `evaluate_rq11_threshold_confound.py` | Five binarization rules per patient (`threshold_method` column) plus predicted-volume and pointing-game columns. |
-| `rq12_grounding_window{8,32}_scores.csv` | `evaluate_grounding_sweep.py` | As RQ11 but at two window sizes, with tie-aware pointing columns (`peak_tie_count`, `centroid_hit`, `any_tied_hit`). |
+| `rq12_grounding_window{W}_stride{S}_scores.csv` | `evaluate_grounding_sweep.py` | As RQ11 but across the window sweep, with tie-aware pointing columns (`peak_tie_count`, `centroid_hit`, `any_tied_hit`). **Stride is in the filename deliberately**: the original sweep switched from 50%-overlap to non-overlapping tiling partway down, so (window, stride) are distinct conditions and a window-only name would silently overwrite one with the other. Conditions: 32/16, 16/8, 12/6, 8/4, 8/8, 6/6. |
 | `pprime_supervised_scores.csv` | `evaluate_pprime_supervised.py` | The supervised P′ reference, same schema, same metric. |
 | `full_family_statistics.csv` | `analyze_full_family.py` | **Derived, not raw**: all 171 paired tests with raw p, BH q-values under both correction schemes, effect sizes and bootstrap CIs. |
 
 ## Reading notes
 
 - Files with a `threshold_method` or `condition` column hold several arms stacked; filter before pairing.
-- `rq12_grounding_window32_scores.csv` reproduces `rq11_threshold_confound_scores.csv` on 212 of 213 patients bit-for-bit; the one exception differs by 5×10⁻⁴ Dice from a tie in Otsu's 256-bin histogram. This is the correctness gate on the RQ12 generalization.
+- `rq12_grounding_window32_stride16_scores.csv` reproduces `rq11_threshold_confound_scores.csv` on 212 of 213 patients bit-for-bit; the one exception differs by 5×10⁻⁴ Dice from a tie in Otsu's 256-bin histogram. This is the correctness gate on the RQ12 generalization.
 - Absolute Dice in Otsu-thresholded files is a lower bound set jointly by the model and the binarizer — see Section 6.3 and 7.11 of the report before comparing across experiments.

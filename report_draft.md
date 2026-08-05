@@ -15,9 +15,9 @@ Recent 3D medical vision-language models can detect *that* a pathological findin
 
 **The language pathway contributes almost nothing.** Replacing PubMedBERT with general-domain BERT, with a randomly initialized never-trained BERT, or with random vectors carrying no language at all produces effects that change sign across training runs — indistinguishable from the 0.0044 Dice noise floor of simply retraining the baseline. Only discarding PubMedBERT's anisotropic embedding *geometry* reliably hurts (−0.0087, consistent across three seeds). Probing the trained model directly, negating the query, destroying its word order, swapping its anatomical referent, or replacing it with contentless filler all leave the projected embedding above 0.94 cosine to the original and the heatmap at ρ = 0.56–1.00; for whole tumor, generic filler and a wrong-region term both *outperform* the true clinical description. The query functions as an opaque class identifier that happens to be spelled in English.
 
-**No intervention fixed the failure, and the one that appeared to was a threshold artifact.** Size-conditioned prompting, multi-scale ensembling, scale-matched retraining (which a noise probe shows learned resize-interpolation shortcuts, ANOVA p≈4×10⁻²⁵¹) and a uniformity regularizer all fail to beat the plain baseline. Evaluating the frozen model at a smaller query window appeared to win decisively — until re-scored under better binarizers, where its +0.044 Dice advantage inverts to −0.039 (deployable top-1%) and −0.043 (oracle). It does, however, genuinely improve *pointing* accuracy for enhancing tumor in every size bin, lifting the previously-at-chance small-ET bin to 309× chance.
+**One intervention works, and it is the simplest.** Size-conditioned prompting, multi-scale ensembling, scale-matched retraining (which a noise probe shows learned resize-interpolation shortcuts, ANOVA p≈4×10⁻²⁵¹) and a uniformity regularizer all fail to beat the plain baseline. What does work is evaluating the frozen model at a smaller query window, around 12³–16³ instead of 32³, with no retraining: +0.060 Dice under a deployable top-1% threshold and +0.067 under an oracle — 2–3× more than the Otsu protocol that discovered it could show. It also lifts threshold-free pointing accuracy for enhancing tumor in all three size bins, taking the previously-at-chance small-ET bin from 0 of 21 patients to 4 of 21.
 
-The durable contribution is therefore methodological: a set of controls — chance baselines, noise probes, cross-seed replication at the level of the training run, pipeline decomposition, metric triangulation and metric well-definedness — that between them overturned four conclusions this work had already written down as findings.
+**The methodological result is the transferable one.** Four conclusions here were overturned or materially qualified *after* being written up, by controls rather than by significance tests — including twice within one section, in opposite directions, once a confound between window size and tiling convention was removed. The general lesson: a shared confound is not a cancelled confound. Every comparison in this report used one binarizer, which we argued made them internally fair; Otsu and every calibrated rule turn out to disagree in *sign* about the same pair of heatmaps, so arms that interact differently with a shared instrument can be ranked backwards by it, invisibly to any amount of paired testing or FDR correction.
 
 ## 1. Introduction
 
@@ -274,7 +274,7 @@ Chance-corrected lift is roughly **uniform at 46-122× across every region and s
 
 RQ1 established that the failure is real. This section systematically ablates candidate explanations and fixes — text-side conditioning, inference-side window size, and training-side retraining — to find out whether the failure is linguistic, architectural, or trainable away. Figure below previews the full decision tree and how each ablation's outcome motivated the next.
 
-![Roadmap of every ablation attempted, from RQ1's core finding through RQ6, with each box's one-line outcome. Green = the intervention helped, red = it hurt or introduced a new problem, orange = partial success.](figures/fig_roadmap.png){width=98%}
+![Roadmap of every experiment in the project, from the P′ validation and RQ1's core finding through the three branches — text-side, inference-side, training-side — with each box's one-line outcome. Green = confirmed or helped, red = hurt or ruled out, amber = partial or later overturned, blue = a neutral finding. The amber on RQ3b/RQ3c is load-bearing: that branch looked green for most of the project and was reclassified only once RQ12 re-scored it under a calibrated threshold.](figures/fig_roadmap.png){width=98%}
 
 ### 7.1 RQ2: Size-conditioned prompting mitigation
 
@@ -338,7 +338,9 @@ To separate "does a smaller receptive field help" from "does naively combining m
 
 Where the win is real (TC, WT), it also isn't free computationally. The 16³/stride-8 sweep does 3,375 forward passes per volume versus the 32³/stride-16 baseline's 343 — a 9.8× increase — and matches in wall-clock: the RQ1 evaluation job ran in 2m47s, the RQ3b job in 19m17s, roughly 7×. "No retraining needed" is accurate; "free" is not, and we shouldn't have said it that way.
 
-Even with those caveats, the large/small *ratio* barely moves either way (ET 14.9×→14.4×, TC 9.3×→8.6×, WT 4.9×→4.8×) — this is a real lift to absolute quality for two of three regions, not a fix for the underlying relative size gap. Going from "our own explanation sounds plausible" to "we tested it, and it holds for 6 of 9 bins after correcting for multiple comparisons" is still real progress over what RQ3 alone showed.
+Even with those caveats, the large/small *ratio* barely moves either way (ET 14.9×→14.4×, TC 9.3×→8.6×, WT 4.9×→4.8×) — this is a real lift to absolute quality for two of three regions, not a fix for the underlying relative size gap.
+
+> **Read this section together with Section 7.11.** Every number above is scored under Otsu, and RQ12 later shows the smaller-window advantage is specific to that binarizer and reverses under better-calibrated ones. The statistics here are correct as computed; what they measure turned out not to be what we thought.
 
 ### 7.4 RQ3c: How far does "smaller is better" go?
 
@@ -356,7 +358,9 @@ The trend **continues in the same direction through 8³, with no plateau or reve
 
 More importantly, re-running the full BH-FDR correction across all tests accumulated up to this point, **ET's statistical picture actually improves as the window shrinks further**: at 12³, 2 of ET's 3 bins now survive correction (only ET-large is borderline, q=0.052); at 8³, **all 3 of ET's bins survive**, along with every other region and bin (18/18 at this window size and the one below it). The region that couldn't clear a corrected significance bar at 16³ becomes the region with the cleanest signal at 8³.
 
-**Pushing one step further to 6³, the trend plateaus for ET and TC specifically.** A paired Wilcoxon test between 8³ and 6³ shows no significant difference for any ET or TC bin (all 6 bins n.s., p=0.13–0.95), but WT continues to improve significantly in all 3 bins (p<0.05 throughout, including p=0.0006 for WT small). A plausible reason: WT lesions are the largest of the three regions by a wide margin (median ~90,740mm³ vs. ET's ~16,971mm³ and TC's ~33,808mm³), so even an 8³ or 6³ window is still comparatively small relative to WT's typical physical extent, leaving more room to benefit from further shrinking, while ET and TC — already much smaller lesions — have apparently reached the point where the window is no longer the binding constraint. This directly answers the question posed after RQ3c's first pass: the "smaller is better" trend does have a floor, and it isn't the same floor for every region.
+**Pushing one step further to 6³, the trend plateaus for ET and TC specifically.** A paired Wilcoxon test between 8³ and 6³ shows no significant difference for any ET or TC bin (all 6 bins n.s., p=0.13–0.95), but WT continues to improve significantly in all 3 bins (p<0.05 throughout, including p=0.0006 for WT small). A plausible reason: WT lesions are the largest of the three regions by a wide margin (median ~90,740mm³ vs. ET's ~16,971mm³ and TC's ~33,808mm³), so even an 8³ or 6³ window is still comparatively small relative to WT's typical physical extent, leaving more room to benefit from further shrinking, while ET and TC — already much smaller lesions — have apparently reached the point where the window is no longer the binding constraint. The "smaller is better" trend does have a floor, and it isn't the same floor for every region.
+
+> **Read this section together with Section 7.11.** Two problems with the curve above are resolved there. First, it is Otsu-scored throughout, and Otsu turns out to *understate* the smaller-window benefit by 2-3× relative to calibrated rules. Second — and more seriously — the 8³ and 6³ points also changed the stride convention, so they vary two things at once and are not comparable to the three points before them. Section 7.11 adds the missing overlap-matched control; the direction of this curve survives, but the plateau claim below does not.
 
 ### 7.5 RQ4: Training with scale-matched patches
 
@@ -493,57 +497,73 @@ All four hold their *direction* in all three runs, so the headline verdicts — 
 
 **RQ4 and RQ6 are the most stable negative results in the project** (6/9 and 7/9), and both reduce the L/S ratio relative to baseline — they compress the size gap by degrading large-lesion performance, not by improving small-lesion performance.
 
-### 7.11 RQ12: Is the smaller window's win real, or an artifact of the threshold?
+### 7.11 RQ12: Is the smaller window's win real, and is Otsu measuring what we think?
 
 Sections 7.3-7.4 crowned the isolated smaller window as this project's best intervention on the strength of Dice under Otsu. Two things about that verdict were never checked, and Section 10 flagged both as the most valuable outstanding follow-up. First, Dice conflates finding a lesion with outlining it, so a Dice win is consistent with the window merely tightening masks around lesions the model already found. Second, every Section 7 comparison shares the Otsu binarizer, which we argued made them internally fair — but Section 6.3 then showed Otsu is *anti*-correlated with lesion size, so it is not a neutral common factor at all.
 
-We recomputed the heatmaps at both window sizes and scored each under all five binarization rules plus the corrected pointing game. Running the pipeline at window 32 reproduces `rq11_threshold_confound_scores.csv` on 212 of 213 patients bit-for-bit (the one exception differs by 5×10⁻⁴ Dice, from a tie in Otsu's 256-bin histogram), which is an end-to-end correctness gate on the generalization.
+We recomputed the heatmaps across the whole window sweep and scored each under all five binarization rules plus the corrected pointing game. Running the pipeline at 32³/stride-16 reproduces `rq11_threshold_confound_scores.csv` on 212 of 213 patients bit-for-bit (the one exception differs by 5×10⁻⁴ Dice, from a tie in Otsu's 256-bin histogram) — an end-to-end correctness gate on the generalization.
 
-**The Dice win exists under Otsu and under nothing else.**
+**A confound in the original sweep had to be removed first.** Section 7.4 noted in passing that 8³ and 6³ used non-overlapping tiling rather than the 50%-overlap convention used at 32³/16³/12³, "for compute reasons." That parenthetical turns out to be load-bearing: those two points change *stride as well as window size*, so they were never comparable to the rest of the curve. We therefore added an 8³/stride-4 run that holds the overlap convention fixed.
 
-| Binarization rule | Window 32³ | Window 8³ | Δ | p | 8³ wins? |
+**With tiling held constant, smaller windows help under every rule — and help more than Otsu suggested.**
+
+| Binarization rule | 32³/16 | 16³/8 | 12³/6 | 8³/4 | Trend |
 |---|---|---|---|---|---|
-| **Otsu** (the published protocol) | 0.0972 | 0.1407 | **+0.0435** | 3.8×10⁻³⁴ | **yes** |
-| pct90 | 0.1034 | 0.1020 | −0.0014 | 3.7×10⁻¹⁸ | no |
-| pct95 | 0.1774 | 0.1738 | −0.0036 | 3.9×10⁻⁰⁸ | no |
-| pct99 (deployable) | 0.2968 | 0.2574 | **−0.0394** | 6.4×10⁻⁴ | no |
-| oracle-volume (diagnostic) | 0.3085 | 0.2652 | **−0.0433** | 1.0×10⁻² | no |
+| Otsu (published protocol) | 0.0972 | 0.1127 | 0.1169 | 0.1239 | +0.027 |
+| top 10% | 0.1034 | 0.1046 | 0.1047 | 0.1048 | +0.001 |
+| top 5% | 0.1774 | 0.1836 | 0.1855 | 0.1870 | +0.010 |
+| **top 1% (deployable)** | 0.2968 | 0.3631 | **0.3693** | 0.3568 | **+0.060** |
+| **oracle volume (diagnostic)** | 0.3085 | **0.4152** | 0.4079 | 0.3754 | **+0.067** |
 
-![RQ12. The same two models, the same patients, the same Dice implementation — scored under five binarization rules. The 8³ window's advantage exists only in the leftmost group, the threshold this project standardized on; under the deployable top-1% rule and the oracle-volume diagnostic it reverses.](figures/fig_rq12_threshold_reversal.png){width=98%}
+RQ3b/RQ3c's central claim survives, and was *understated*: the benefit of a smaller query window is 2-3× larger under the calibrated rules (+0.060 pct99, +0.067 oracle) than under the Otsu protocol that discovered it (+0.027). The calibrated curves also reveal an interior optimum at **12³-16³** that Otsu's monotone curve hid, with a mild genuine decline by 8³.
 
-Pooled over all 213 patient×region pairs, the 8³ window beats 32³ by +0.044 Dice under Otsu and *loses* under every other rule, by a margin as large as the win under the two rules that best reflect heatmap quality. The pct90/pct95 deltas are statistically significant but negligible in magnitude (|Δ|<0.004) and we do not read them as substantive; pct99 and oracle-volume are both substantive and both negative.
+![The 32³ baseline against an 8³ window at matched 50% overlap, on the same patients under the same Dice implementation. The advantage is real under every binarization rule and largest under the two that best reflect heatmap quality — the reverse of what the first, tiling-confounded version of this comparison showed.](figures/fig_rq12_threshold_reversal.png){width=98%}
 
-**This overturns Section 7.11's previous bottom line.** The smaller window was not localizing better. It was producing a heatmap whose intensity histogram happens to interact more favourably with Otsu's between-class-variance criterion. Change the binarizer to anything better calibrated and the advantage inverts. The published +0.044 was measuring the coupling between a model and a bad thresholder, not grounding quality — and no amount of paired testing or FDR correction would have caught it, because every arm shared the same confounded metric.
+**The 8³/6³ "continued improvement" in Section 7.4 was a tiling artifact, and it exposes Otsu directly.** Holding window size fixed at 8³ and changing only the stride:
 
-**The pointing game splits sharply by region, and rescues one specific claim.**
-
-| Region | Bin | 32³ hit rate | 8³ hit rate | Change |
+| Binarization rule | 8³ overlapped | 8³ non-overlapped | Δ | p |
 |---|---|---|---|---|
-| ET | small | 0.000 | **0.143** | **+0.143** |
-| ET | medium | 0.130 | **0.391** | **+0.261** |
-| ET | large | 0.348 | **0.565** | **+0.217** |
+| Otsu | 0.1239 | 0.1407 | **+0.0169** (prefers non-overlapping) | 5.8×10⁻³³ |
+| top 10% | 0.1048 | 0.1020 | −0.0028 | 2.1×10⁻³³ |
+| top 5% | 0.1870 | 0.1738 | −0.0132 | 1.6×10⁻³⁵ |
+| top 1% | 0.3568 | 0.2574 | **−0.0994** | 7.6×10⁻³³ |
+| oracle volume | 0.3754 | 0.2652 | **−0.1101** | 3.5×10⁻²⁴ |
+
+**Otsu and every calibrated rule disagree in *sign*, on the same heatmaps, by a wide margin.** Dropping overlap makes the heatmap blocky and low-entropy — a coarser intensity histogram, which gives Otsu's between-class-variance criterion a cleaner two-class split and therefore a *better* score, while every rule that selects a fixed fraction of voxels is penalised for the lost spatial resolution. This is the sharpest statement this project can make about its own instrument: **Otsu does not merely add noise, it rewards a specific degradation of the heatmap.** Section 7.4's reported "plateau at 6³ for ET and TC, while WT keeps improving" compares two non-overlapping points against three overlapping ones and is not a finding about window size at all.
+
+![The window sweep re-scored under every binarization rule. Columns are window/stride; the first four hold the 50%-overlap convention fixed and the last two are the non-overlapping points the original sweep switched to. Only the Otsu curve keeps rising across that switch.](figures/fig_rq12_window_curve.png){width=98%}
+
+**The pointing game confirms the corrected picture and localizes who benefits.** Comparing the 32³ baseline against 8³ at matched 50% overlap, using the tie-aware centroid rule:
+
+| Region | Bin | 32³ hit rate | 8³/stride-4 hit rate | Change |
+|---|---|---|---|---|
+| ET | small | 0.000 | **0.190** | **+0.190** |
+| ET | medium | 0.130 | **0.565** | **+0.435** |
+| ET | large | 0.348 | **0.609** | **+0.261** |
 | TC | small | 0.111 | 0.000 | −0.111 |
-| TC | medium | 0.348 | 0.043 | −0.304 |
-| TC | large | 0.696 | 0.087 | −0.609 |
-| WT | small | 0.531 | 0.375 | −0.156 |
-| WT | medium | 0.857 | 0.571 | −0.286 |
-| WT | large | 0.850 | 0.850 | ±0.000 |
+| TC | medium | 0.348 | 0.130 | −0.218 |
+| TC | large | 0.696 | 0.217 | −0.479 |
+| WT | small | 0.531 | **0.812** | **+0.281** |
+| WT | medium | 0.857 | 0.857 | ±0.000 |
+| WT | large | 0.850 | **1.000** | **+0.150** |
 
-For enhancing tumor — the smallest, clinically hardest region — the smaller window improves pointing accuracy in every size bin. **Most notably it partially repairs the single sharpest failure in this report: ET-small goes from 0 of 21 patients to 3 of 21, which is 309× its chance level (p=1.3×10⁻⁷) rather than exactly at chance.** For tumor core and whole tumor it makes pointing dramatically worse, collapsing TC-large from 0.696 to 0.087.
+A smaller window improves pointing substantially for enhancing tumor and whole tumor — **including the bin that was at exact chance: small ET goes from 0 of 21 to 4 of 21** — while consistently degrading tumor core, the middle-sized region. That regional split is not something Dice showed at all, in either direction.
 
-So the smaller window is not a general improvement and not a general failure. It trades away localization of large structures to gain localization of small ones — which is a coherent consequence of shrinking the receptive field, and is exactly the trade the project was looking for, just far narrower than the Dice numbers implied. The correct claim is: **an 8³ query window measurably improves grounding for enhancing tumor, including the bin that was previously at chance, while degrading it everywhere else and losing on Dice under every well-calibrated threshold.**
+**What this section changes.** The claim that survives is stronger and more precise than the one Sections 7.3-7.4 made: a smaller query window genuinely improves localization, by more than the original protocol could detect, with an optimum around 12³-16³ rather than "as small as possible". What does not survive is the specific 8³/6³ extension and its plateau, both of which measured tiling rather than window size. And the methodological finding is the most transferable result here: a shared binarizer is *not* a cancelled confound, because arms can interact with it in opposite directions — which is exactly what happened, and what no amount of paired testing or FDR correction across those arms would have revealed.
 
 ### 7.12 Summary across ablations
 
 \newpage
 
-![Leaderboard: every method's mean Dice, one panel per region, bars grouped by size bin. Note that these are Otsu-thresholded scores; Section 7.11 shows the RQ3c ranking does not survive a better binarizer.](figures/fig_leaderboard.png){width=98%}
+![Leaderboard: every method's mean Dice, one panel per region, bars grouped by size bin. These are Otsu-thresholded scores, the project's original protocol; Section 7.11 shows the absolute values here understate the smaller-window arms and that Otsu is not a neutral common factor across them.](figures/fig_leaderboard.png){width=98%}
 
-**The honest bottom line, after Section 7.11: this project did not find an intervention that improves small-lesion grounding across the board.** The candidate that appeared to — evaluating the frozen model at a smaller query window — turned out to win only under the specific threshold the whole project had standardized on, and to lose under better-calibrated ones. Every other attempt (text-side size conditioning in RQ2, scale-matched retraining in RQ4, embedding-collapse repair in RQ6) produced genuine, verifiable partial successes on its own terms, and none surpassed the plain baseline.
+**The bottom line, after Section 7.11.** One intervention works, and it is the simplest: **evaluating the frozen model at a smaller query window — around 12³-16³ rather than 32³ — with no retraining at all.** It is worth +0.060 Dice under the deployable top-1% rule and +0.067 under the oracle, roughly 2-3× more than the Otsu protocol that originally found it was able to show. It also improves threshold-free pointing accuracy for enhancing tumor in all three size bins, lifting the previously-at-chance ET-small bin from 0 of 21 patients to 4 of 21, at the cost of degrading tumor core.
 
-Two positive results do survive. First, the smaller window genuinely improves *pointing* accuracy for enhancing tumor in all three size bins, including lifting the previously-at-chance ET-small bin to 309× chance — a narrow but real fix to the report's sharpest failure. Second, replacing Otsu with a fixed top-1% threshold is a free, deployable protocol improvement worth 2-4× Dice on its own (Section 6.3), and it requires no retraining and no ground truth.
+Every other attempt failed to beat the plain baseline: text-side size conditioning (RQ2), naive multi-scale ensembling (RQ3), scale-matched retraining (RQ4, which a noise probe showed had learned resize artifacts), and the uniformity-regularizer repair (RQ6). Each produced genuine partial successes on its own terms; none surpassed doing nothing but changing the query window. Added complexity introduced new failure modes faster than it fixed the original one.
 
-The most valuable output of this project is therefore diagnostic rather than remedial: a set of controls — chance baselines, noise probes, cross-seed replication, pipeline decomposition, metric triangulation, and metric well-definedness — that between them caught four claims this work would otherwise have reported as findings. Sections 7.8-7.11 each overturned or substantially qualified a conclusion the earlier sections had already written down.
+A second free improvement stands independently: **replacing Otsu with a fixed top-1% threshold**, worth 2-4× Dice (Section 6.3), needing no retraining and no ground truth.
+
+**But the most transferable result is methodological, and it is a cautionary one.** Four conclusions in this report were overturned or materially qualified *after* being written up as findings — by the controls in Section 8 rather than by any significance test. Two of those reversals happened inside Section 7.11 alone, in opposite directions: the smaller-window win first appeared to be an Otsu artifact, then turned out to be real and *understated* once a confound between window size and tiling convention was removed. The general lesson is sharper than "check your metric": **a shared confound is not a cancelled confound.** Every arm in Section 7 used the same binarizer, which we argued made the comparisons internally fair. Section 7.11 shows Otsu and every calibrated rule disagree in *sign* about the same pair of heatmaps — so arms that interact differently with a shared instrument can be ranked backwards by it, and no amount of paired testing or FDR correction across those arms will reveal it.
 
 ## 8. Diagnostic Methodology
 
@@ -558,7 +578,11 @@ The ablation studies above rely on four recurring diagnostic tools, used consist
 7. **Replication at the right unit** (Sections 7.8, 7.10): a within-run paired test over 213 patients answers "is this difference real *for this trained model*", not "is this difference real". Since every arm here is one training run, the unit of replication is the run, and the honest evidence is sign consistency across independently seeded runs measured against a retraining noise floor. Applied to RQ7 this demoted a p≈6×10⁻³⁵ result to noise; applied to RQ5 it upgraded a reported null to a consistent positive.
 8. **Metric well-definedness** (Section 7.11): checking that a metric measures what its name implies before interpreting it. The pointing game presumes a well-defined peak; a strided sliding window makes the heatmap piecewise-constant over blocks, so `argmax` returns a block corner and the "peak" is ambiguous by up to the stride. Measuring the size of the tied-maximum plateau exposed this and changed several Section 6.3 numbers substantially.
 
-**On the value of these tools.** Four claims in this report were overturned or materially qualified by tools 5-8, *after* they had already been written up as findings: the magnitude of the size collapse (tool 5), the RQ7 encoder effects and the RQ5 null (tool 7), the pointing-game hit rates (tool 8), and — most consequentially — the identity of the project's best intervention (Section 7.11, tool 5 applied to the threshold). Each was a plausible, statistically significant, internally consistent result. That is the honest lesson of this project: with a multi-stage pipeline and a shared confounded metric, significance testing alone does not protect you, because every arm inherits the same confound and the comparison still looks clean.
+9. **Confound isolation.** When two settings change together, no comparison between them means anything. Section 7.4's sweep shrank the window *and* switched from 50%-overlap to non-overlapping tiling at the 8³ point, which was noted at the time as a compute detail rather than treated as a confound. Adding the missing 8³/stride-4 control was what separated the two, and it reversed the reading twice.
+
+**On the value of these tools.** Four claims in this report were overturned or materially qualified by tools 5-9 *after* they had already been written up as findings: the magnitude of the size collapse (tool 5), the RQ7 encoder effects and the RQ5 null (tool 7), the pointing-game hit rates (tool 8), and the size and mechanism of the window-size benefit (tools 5 and 9 together). Each was plausible, statistically significant, and internally consistent.
+
+The last of those is the most instructive because it moved twice. Re-scoring under better thresholds first suggested the window benefit was an Otsu artifact that reversed; adding the overlap control then showed the benefit is real, larger than Otsu could measure, and that what actually reversed was a tiling change masquerading as a window-size effect. A single control is not a verdict — the first correction was itself confounded. The general lesson: with a multi-stage pipeline and a shared metric, significance testing alone does not protect you, because every arm inherits the same confound and the comparison still looks clean.
 
 Figure below visualizes the outcome of every one of those corrected significance tests at once — every ablation, every region, every size bin, in one panel:
 
@@ -591,20 +615,20 @@ Several non-trivial obstacles came up during implementation, beyond the RQ2 nega
 - **Lightweight backbone, not a competitive segmentation model.** A ResNet-10 with sliding-window Otsu thresholding is a deliberately simple architecture chosen to make the size-vs-quality relationship easy to isolate and interpret. Absolute Dice numbers from the text-conditioned arms should not be compared to state-of-the-art BraTS leaderboards. Section 6.1's P′ check bounds how much of that gap is the setup rather than a pipeline defect: the same data, split and metric under conventional dense supervision reach published-range Dice, so the low text-conditioned numbers are a property of the task formulation, not of broken plumbing.
 - **Templated, not naturalistic, text.** Region descriptions are hand-written templates (Section 5), not real radiologist-authored report sentences. RQ5 tested one naturalistic rewrite; across three seeds it is consistently *better* than templated text rather than equivalent (Section 7.10), though not formally significant at n=3 runs. Either way it is one specific naturalistic phrasing, not a sample of real report variation.
 - **Replication is 3 runs, not full k-fold.** RQ1's core pattern held in all 3 seeds (9/9 region×bin), and RQ2/RQ4/RQ5/RQ6 and all four RQ7 conditions have since been replicated across 3 seeds each (Sections 7.8, 7.10). This is a substantial strengthening over the single-run evidence, but 3 runs give the cross-seed *t*-tests almost no power, which is why those sections lead with sign consistency against a noise floor rather than with p-values. A full k-fold sweep would be stronger.
-- **The Otsu threshold was not a neutral choice, and it changed a headline conclusion.** Otsu and the stride-16 window were chosen for transparency rather than to maximize Dice. Section 6.3 quantifies the price: 2.2-5.4× in Dice relative to an oracle-volume threshold, 6-223× volume over-prediction, and *anti*-correlation with true lesion size. Section 10 of an earlier draft argued the Section 7 comparisons were nonetheless internally fair because every arm shared the threshold. **That argument was wrong**, and Section 7.11 shows why: the winning intervention's entire advantage is Otsu-specific and reverses under every better-calibrated rule. A shared confound is not a cancelled confound when arms interact with it differently.
+- **The Otsu threshold was not a neutral choice, and it changed a headline conclusion.** Otsu and the stride-16 window were chosen for transparency rather than to maximize Dice. Section 6.3 quantifies the price: 2.2-5.4× in Dice relative to an oracle-volume threshold, 6-223× volume over-prediction, and *anti*-correlation with true lesion size. An earlier draft argued the Section 7 comparisons were nonetheless internally fair because every arm shared the threshold. **That argument was wrong**, and Section 7.11 shows why: at a fixed window size, Otsu and every calibrated rule disagree in *sign* about which of two heatmaps is better (Otsu prefers the non-overlapping tiling by +0.017; the top-1% rule rejects it by −0.099). A shared confound is not a cancelled confound when arms interact with it differently. In this project that mattered in both directions — Otsu understated the smaller-window benefit while simultaneously making a tiling change look like a window-size improvement.
 - **The window sweep (RQ3b/RQ3c) has not been fully re-run under a better binarizer.** Section 7.11 re-scored only the 32³ and 8³ endpoints. The 16³, 12³ and 6³ points, and the reported ET/TC plateau at 6³, are still Otsu-only results and should be treated as provisional in light of that section.
 - **The oracle-volume threshold is a diagnostic, not a method.** It uses the ground-truth voxel count and is therefore unavailable at inference. It is reported only to bound how much of the collapse is attributable to thresholding. The `pct99` fixed-percentile rule is the deployable version, and it recovers much of the same benefit.
 - **RQ6's fix is incomplete, and its diagnostic follow-up is not a deployable method.** The uniformity regularizer fixed 2 of 3 shortcut behaviors identified by the noise probe, not all 3 — a residual hub bias remains for the smallest-scale pipeline, and RQ6 still underperforms the plain RQ1 baseline in 7 of 9 bins. Separately, the single-scale oracle test used to isolate why ensembling helps RQ6 relies on the *true* size bin label, which is not available at real inference time — it is a mechanism-isolating diagnostic, not a proposed evaluation protocol.
-- **The window-size floor was only characterized down to 6³, and only for two of three regions.** RQ3c found a plateau for ET/TC at 6³, but WT was still improving significantly at that point — the true floor for WT, and whether ET/TC's plateau holds at even smaller windows (4³, 2³), is untested.
+- **The window-size optimum is bracketed, not pinned down.** Under calibrated thresholds the curve peaks somewhere in the 12³-16³ range and declines mildly by 8³ (Section 7.11), but we evaluated only 32/16/12/8 at matched overlap, so the true optimum and the shape around it are uncharacterised. The plateau reported in Section 7.4 has been withdrawn: it rested on the 6³ and 8³ points, which changed the tiling convention as well as the window size.
 
 ## 11. Future Work
 
 - **A smarter cross-scale combination rule.** RQ3 and RQ6 together show the failure mode isn't multi-scale representation learning itself, nor is ensembling inherently harmful (RQ6 benefits from it) — but naive voxel-wise max lets the noisiest scale win when the underlying model wasn't trained to be calibrated at that scale (RQ3). Worth trying: a learned gating/attention mechanism across scales, or weighting by each scale's calibration/confidence rather than taking a raw max.
 - **Finish fixing the residual hub bias from RQ6.** The uniformity regularizer fixed 2 of 3 noise-probe shortcut behaviors and improved localization over RQ4 in all 9 bins, but the smallest-scale pipeline still shows residual bias toward the "large" class, and RQ6 still trails the plain RQ1 baseline overall. Worth trying: hard-negative mining that specifically contrasts the "large" and "small" classes during training, or a stronger uniformity weight, to see if the last residual bias can be closed and RQ6 can be pushed past the RQ1 baseline rather than just past RQ4.
-- **Re-run the whole window sweep under `pct99`.** Section 7.11 re-scored only the 32³ and 8³ endpoints and found the ranking inverts. The 16³/12³/6³ points and the reported ET/TC plateau are still Otsu-only and may not survive; this is now the cheapest high-value experiment left, since it needs no retraining.
+- **Re-run the remaining Section 7 arms under a calibrated threshold.** RQ2, RQ4 and RQ6 have still only ever been scored under Otsu, which Section 7.11 shows can rank arms backwards. Those three retrained models are on disk, so this is an evaluation-only sweep.
 - **Close the gap between P′ and the text-conditioned model.** Section 6.1 shows a supervised U-Net reaches 0.64 Dice on the smallest enhancing tumors where the text-conditioned model reaches 0.01, on identical data. That 60× gap is the real target, and it is now bounded rather than speculative. The obvious intermediate is a text-conditioned model with a dense decoder rather than a globally-pooled encoder, which would remove the sliding-window bottleneck entirely and make Grad-CAM-style attribution viable again.
 - **Make the text pathway carry information at all.** RQ7 and RQ8 together show the query is a class index. Worth trying: contrastive negatives built from *within*-region text perturbations (true description vs. its negation as a hard negative pair), which would force the projection head to separate polarity rather than only region identity — the single cheapest change that could make the language side do work.
-- **Find WT's window-size floor, and re-check ET/TC's**, at 4³ and 2³ — but under a calibrated threshold, given Section 7.11.
+- **Pin down the window-size optimum.** Section 7.11 brackets it at 12³-16³ under calibrated thresholds but evaluates only four overlap-matched points. A denser sweep (24³, 20³, 14³, 10³) at fixed 50% overlap would locate it properly, and is cheap — no retraining, just re-querying the frozen model.
 - **Extend to a second dataset** (e.g. LIDC-IDRI lung nodules) to test whether the failure pattern generalizes beyond brain tumors.
 
 ## 12. Effort / Contribution

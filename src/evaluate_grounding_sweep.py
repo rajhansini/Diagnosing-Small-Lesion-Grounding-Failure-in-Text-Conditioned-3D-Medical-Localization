@@ -166,8 +166,13 @@ def main():
                   "true_volume_mm3", "gt_voxels_resized", "gt_volume_mm3_resized",
                   "pred_voxels", "pred_volume_mm3", "dice", "iou", "argmax_hit", "argmax_dist_mm",
                   "peak_tie_count", "centroid_hit", "centroid_dist_mm", "any_tied_hit"]
+    # Stride is part of the filename, not just the window size: RQ3c switched from 50%-overlap to
+    # non-overlapping tiling partway down the sweep, so (window, stride) pairs are distinct
+    # conditions and a window-only filename would silently overwrite one with the other.
     suffix = "_smoke" if args.limit_patients else ""
-    csv_path = os.path.join(RESULTS_DIR, f"rq12_grounding_window{args.window_size}{suffix}_scores.csv")
+    csv_path = os.path.join(
+        RESULTS_DIR,
+        f"rq12_grounding_window{args.window_size}_stride{args.stride}{suffix}_scores.csv")
     with open(csv_path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()

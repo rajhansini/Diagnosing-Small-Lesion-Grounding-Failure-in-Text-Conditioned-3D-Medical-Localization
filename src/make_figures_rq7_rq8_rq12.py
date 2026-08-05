@@ -1,11 +1,13 @@
 """Figures for the late experiments: RQ7 (text encoder), RQ8 (compositionality), RQ12 (threshold), P'.
 
-Four figures, each carrying one claim that the earlier figures cannot show:
+Five figures, each carrying one claim that the earlier figures cannot show:
 
-  fig_rq12_threshold_reversal  the project's central correction -- the smaller window's Dice win
-                               exists under Otsu and inverts under every better-calibrated rule.
+  fig_rq12_threshold_reversal  the smaller window's Dice gain under each binarizer at matched
+                               tiling: real everywhere, and largest under the calibrated rules.
   fig_rq7_encoder              text-encoder effects against the retraining noise floor, per seed,
                                making visible that three of four "effects" change sign across runs.
+  fig_rq12_window_curve        the whole window sweep under all five rules, showing where the
+                               original sweep's tiling change breaks comparability.
   fig_rq8_compositionality     how little the heatmap moves when the query's meaning is destroyed.
   fig_pprime_size              whether a fully supervised model collapses on small lesions too.
 
@@ -72,8 +74,17 @@ def paired_mean(rows_a, rows_b, key_filter=None):
 
 
 def fig_rq12_threshold_reversal():
-    """Draw the Otsu-only nature of the smaller window's advantage."""
-    w32, w8 = load("rq12_grounding_window32_scores.csv"), load("rq12_grounding_window8_scores.csv")
+    """Draw the smaller window's advantage under each binarizer, at matched tiling.
+
+    Both arms use the 50%-overlap convention, so this isolates window size. The point of the figure
+    is that the advantage is real under every rule and is 2-3x LARGER under the calibrated rules than
+    under the Otsu protocol that originally discovered it -- the opposite of what the first,
+    tiling-confounded version of this comparison suggested.
+    """
+    # 8³ at stride 4 keeps the 50%-overlap convention of the 32³ baseline, so this contrasts
+    # window size alone; the non-overlapping 8³/stride-8 run is a separate condition.
+    w32 = load("rq12_grounding_window32_stride16_scores.csv")
+    w8 = load("rq12_grounding_window8_stride4_scores.csv")
     if not w32 or not w8:
         print("  skipped fig_rq12_threshold_reversal (missing RQ12 CSVs)")
         return
@@ -90,7 +101,7 @@ def fig_rq12_threshold_reversal():
     w = 0.36
     fig, ax = plt.subplots(figsize=(9.2, 4.6))
     ax.bar(x - w / 2 - 0.01, a_vals, w, label="32³ window (baseline)", color=BLUE)
-    ax.bar(x + w / 2 + 0.01, b_vals, w, label="8³ window (the “fix”)", color=ORANGE)
+    ax.bar(x + w / 2 + 0.01, b_vals, w, label="8³ window (stride 4, matched overlap)", color=ORANGE)
 
     for xi, (a, b) in enumerate(zip(a_vals, b_vals)):
         better = b > a
@@ -102,7 +113,7 @@ def fig_rq12_threshold_reversal():
     ax.set_xticklabels([lbl for _, lbl in methods], fontsize=9, color=INK)
     ax.set_ylim(0, max(max(a_vals), max(b_vals)) * 1.22)
     ax.legend(frameon=False, fontsize=9, loc="upper left", labelcolor=INK)
-    ax.set_title("The smaller window wins only under Otsu — and loses under every better-calibrated rule",
+    ax.set_title("At matched tiling the smaller window helps under every rule — most under the calibrated ones",
                  fontsize=11, color=INK, pad=12, loc="left")
     fig.tight_layout()
     out = os.path.join(FIGURES_DIR, "fig_rq12_threshold_reversal.png")
@@ -252,10 +263,63 @@ def fig_pprime_size():
     print(f"  wrote {out}")
 
 
+def fig_rq12_window_curve():
+    """Draw the RQ3b/RQ3c window curve re-scored under every binarization rule.
+
+    Sections 7.3-7.4 reported this curve under Otsu alone and read it as monotone improvement. Drawn
+    against the calibrated rules the shape is different: there is an interior optimum around 16³ and
+    the continued shrinking to 8³/6³ costs Dice. Only the Otsu line rises all the way down.
+    """
+    windows = [(32, 16), (16, 8), (12, 6), (8, 4), (8, 8), (6, 6)]
+    methods = [("otsu", "Otsu", ORANGE), ("pct90", "top 10%", BLUE),
+               ("pct95", "top 5%", GREEN), ("pct99", "top 1%", "#E69F00"),
+               ("oracle_volume", "oracle", "#CC79A7")]
+
+    series, have = {}, []
+    for w, st in windows:
+        rows = load(f"rq12_grounding_window{w}_stride{st}_scores.csv")
+        if rows is None:
+            continue
+        have.append((w, st))
+        for m, _, _ in methods:
+            vals = [float(r["dice"]) for r in rows if r["threshold_method"] == m]
+            series.setdefault(m, []).append(float(np.mean(vals)) if vals else float("nan"))
+    if len(have) < 3:
+        print("  skipped fig_rq12_window_curve (need at least 3 window sizes)")
+        return
+
+    x = np.arange(len(have))
+    fig, ax = plt.subplots(figsize=(9.2, 4.8))
+    for m, label, col in methods:
+        ax.plot(x, series[m], marker="o", markersize=7, linewidth=2, color=col,
+                markeredgecolor="white", markeredgewidth=1.2, zorder=3)
+        # Direct labels on every line: two of these hues carry a contrast warning against the page,
+        # so identity must not rest on colour alone.
+        ax.annotate(label, xy=(x[-1] + 0.09, series[m][-1]), fontsize=9, color=INK,
+                    va="center", ha="left")
+
+    style_axes(ax, ylabel="Mean Dice (213 patient×region pairs)",
+               xlabel="Query window size / stride  (the last two drop the 50%-overlap convention)")
+    ax.set_xticks(x)
+    ax.set_xticklabels([f"{w}³\n/{st}" for w, st in have], fontsize=8.5, color=INK)
+    ax.set_xlim(-0.25, len(have) - 0.45)
+    ax.axvspan(3.5, len(have) - 0.5, color=GRID, alpha=0.5, zorder=0)
+    ax.annotate("non-overlapping\ntiling", xy=(4.5, ax.get_ylim()[1] * 0.02), fontsize=8.5,
+                color=INK_MUTED, ha="center", va="bottom")
+    ax.set_title("Smaller windows help under every rule — until the tiling convention changes",
+                 fontsize=11, color=INK, pad=12, loc="left")
+    fig.tight_layout()
+    out = os.path.join(FIGURES_DIR, "fig_rq12_window_curve.png")
+    fig.savefig(out, dpi=200)
+    plt.close(fig)
+    print(f"  wrote {out}")
+
+
 def main():
-    """Generate all four late-experiment figures."""
+    """Generate all five late-experiment figures."""
     os.makedirs(FIGURES_DIR, exist_ok=True)
     fig_rq12_threshold_reversal()
+    fig_rq12_window_curve()
     fig_rq7_encoder()
     fig_rq8_compositionality()
     fig_pprime_size()

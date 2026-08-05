@@ -104,3 +104,19 @@ window   stride     median ties   block s^3
   pct95            213   0.1774   0.1738  -0.0036   3.87e-08  no
   pct99            213   0.2968   0.2574  -0.0394   6.38e-04  no
   oracle_volume    213   0.3085   0.2652  -0.0433   1.00e-02  no
+
+[F] THE WHOLE WINDOW CURVE, RE-SCORED UNDER EVERY BINARIZER
+    Sections 7.3-7.4 reported this curve under Otsu only. If 'smaller is better' is a
+    property of grounding it should hold under any reasonable rule; if it is an Otsu
+    artifact the curve should flatten or invert once the threshold is calibrated.
+  method              32³/16      16³/8      12³/6       8³/4       8³/8       6³/6   overlapping-only trend
+  otsu                0.0972     0.1127     0.1169     0.1239     0.1407     0.1428   +0.0266  smaller BETTER
+  pct90               0.1034     0.1046     0.1047     0.1048     0.1020     0.1029   +0.0014  flat
+  pct95               0.1774     0.1836     0.1855     0.1870     0.1738     0.1772   +0.0096  smaller BETTER
+  pct99               0.2968     0.3631     0.3693     0.3568     0.2574     0.2465   +0.0600  smaller BETTER
+  oracle_volume       0.3085     0.4152     0.4079     0.3754     0.2652     0.2599   +0.0668  smaller BETTER
+
+    Columns are window/stride. The first four hold the 50%-overlap convention fixed;
+    the last two are the non-overlapping points RQ3c switched to for compute reasons.
+    The trend column covers ONLY the overlap-matched conditions, which is the comparison
+    Sections 7.3-7.4 believed they were making.

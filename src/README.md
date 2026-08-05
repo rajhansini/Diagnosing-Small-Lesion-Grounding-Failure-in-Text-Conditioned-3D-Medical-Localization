@@ -2,7 +2,7 @@
 
 **Attribution.** Every file below was written by me for this project. None contains code copied from another project, another assignment, or a third-party codebase. Third-party libraries (PyTorch, MONAI, Hugging Face Transformers, scikit-image, SciPy, matplotlib) and the pretrained PubMedBERT weights are used through their public APIs and package installs; nothing is vendored into this repository.
 
-**Totals: 54 files, 7,131 lines.** Line counts below are `wc -l` including docstrings and comments.
+**Totals: 54 files, 7,297 lines.** Line counts below are `wc -l` including docstrings and comments.
 
 Run order for a full reproduction is documented in the [root README](../README.md).
 
