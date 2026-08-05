@@ -19,10 +19,10 @@ It is organised as:
 | **3** | The machinery: data, model, localization, metrics (with the code that does each) |
 | **4** | All fifteen experiments, in chronological order |
 | **5** | The five conclusions we had to reverse, and how each was caught |
-| **6** | Complete inventory: 56 scripts, 111 cluster jobs, 53 result files, 14 figures |
+| **6** | Complete inventory: 57 scripts, 111 cluster jobs, 53 result files, 20 figures |
 | **7** | How to reproduce everything |
 
-**Scale of the work:** 56 Python files (7,640 lines), 45 cluster job scripts, **111 SLURM jobs totalling 22.4 GPU-hours**, 53 per-patient result tables, 171 statistical tests, 14 figures.
+**Scale of the work:** 57 Python files (8,103 lines), 45 cluster job scripts, **111 SLURM jobs totalling 22.4 GPU-hours**, 53 per-patient result tables, 171 statistical tests, 20 figures.
 
 \newpage
 
@@ -138,6 +138,12 @@ The failure is real and is **specific to text-conditioned localization** — a c
 **`text_encoder.py`** (204 lines) — the single source of all text in the project. Defines the region descriptions and embeds them with PubMedBERT. Three variants: templated (baseline), size-conditioned (RQ2/RQ4), naturalistic radiology-style (RQ5).
 
 **`build_rq7_text_variants.py`** (166 lines) and **`build_rq8_probe_texts.py`** (181 lines) — build the encoder-ablation and compositionality-probe text sets. Details in Part 4.
+
+![The dataset and the split. Left: 369 patients, 296 train / 73 validation. Right: how those patients distribute across region × size bin. Validation counts (labelled) are what every result in this project is measured on.](figures/fig_dataset_split.png){width=100%}
+
+![Left: lesion volumes per region on a log axis, with the tercile cutoffs that define small/medium/large drawn as black bars. Right: the same data as individual patients. The shaded band is the range where a "large" ET and a "small" WT overlap — which is why size bins are computed per region and never globally.](figures/fig_dataset_volumes.png){width=100%}
+
+**What these two figures establish.** The split is 296/73 and the bins are reasonably balanced (n = 20–32 per validation bin). ET is the thinnest region because 27 of 369 patients have no enhancing component at all. And the right-hand panel above shows the structural fact that governs the whole project: the three regions overlap so heavily in absolute volume that a *large* enhancing tumor is physically smaller than a *small* whole tumor. Any global size threshold would therefore be measuring "which region is this" rather than "how big is this lesion."
 
 ## 3.2 The model
 
@@ -322,6 +328,8 @@ One-way ANOVA: **F = 59,672, p ≈ 4×10⁻²⁵¹**. Near-total separation on i
 
 **What this proves.** The model learned to recognise **resize-interpolation artifacts** — the blur signature of upscaling a 16³ crop, the detail loss of downscaling a 64³ one — not tumor content. This is **shortcut learning**, caught directly rather than inferred.
 
+![The RQ4 noise probe. Left: pure Gaussian noise, containing no anatomy whatsoever, is scored against each size-conditioned text — and the three crop-and-resize pipelines separate almost perfectly. Right: the cross-similarity check that revealed the mechanism is a "large"-class hub rather than clean per-scale recognition.](figures/fig_shortcut_probe.png){width=100%}
+
 **A refinement we reported precisely.** The mechanism is not clean per-scale fingerprinting. *Every* noise pipeline scores highest against the **"large"** text embedding. That is an embedding-space **hub** — one class acting as a generic attractor regardless of input. Reporting the mechanism we actually found, rather than the one we hypothesised, is what made RQ6 possible.
 
 ## RQ6 — Can the hub be repaired?
@@ -367,6 +375,8 @@ One-way ANOVA: **F = 59,672, p ≈ 4×10⁻²⁵¹**. Near-total separation on i
 
 Otsu returns a near-constant 8–15% of the brain regardless of target size. Worse, the correlation between true and predicted volume is **negative** (ρ = −0.26 to −0.48) — it emits *larger* masks for *smaller* lesions, mechanically manufacturing part of the size effect.
 
+![Otsu's predicted mask volume against the true lesion volume, per region, both on log axes. A calibrated predictor would follow the dashed diagonal. Instead the predictions form a near-flat cloud two orders of magnitude above it, and the trend runs *downward* — smaller lesions receive larger masks.](figures/fig_otsu_calibration.png){width=100%}
+
 **Result 2 — the collapse is real but was overstated:**
 
 | Region | L/S under Otsu | L/S under oracle |
@@ -382,6 +392,8 @@ Honest headline: **2.4–14.4×**, not 5–15×.
 > **Small enhancing tumor: the model's peak response lands inside the true lesion in 0 of 21 patients.** Exactly chance. Median distance to the nearest lesion voxel: 23.7 mm.
 
 That is not a boundary-drawing failure. The model is not pointing at the lesion at all. It is the sharpest single statement this project can make.
+
+![The pointing game across every region and size bin, at both window sizes, against each bin's own chance level (black dashes, all below 2%). Every bar clears chance comfortably except ET-small at 32³, which is exactly zero — 0 hits in 21 patients. The 8³ window is the only intervention that moves it, at the cost of tumor core.](figures/fig_pointing_game.png){width=100%}
 
 **A free improvement.** The fixed top-1% rule needs no ground truth and beats Otsu everywhere, by 3–4× for ET.
 
@@ -468,6 +480,8 @@ Every manipulation stays above **0.94 cosine** after the very layer supposed to 
 | RQ4 | −0.0376 | −0.0466 | −0.0109 | −0.032 | 6/9 |
 | RQ5 | +0.0035 | +0.0528 | +0.0641 | +0.040 | 6/9 |
 | RQ6 | −0.0231 | −0.0378 | −0.0295 | −0.030 | 7/9 |
+
+![Each ablation retrained three times. One dot per training run, tick at the mean, grey band the retraining noise floor. All four hold their direction — but note the caveat below the figure: seed replication tests whether a verdict survives *retraining*, and cannot detect a confound every run shares.](figures/fig_seed_replication.png){width=100%}
 
 All four hold direction. **But RQ5 was reported as "no difference" — and across three runs it is consistently better.** See Part 5.2.
 
@@ -587,7 +601,7 @@ Also: **a single control is not a verdict.** Version 2 above *was* a control, an
 
 # Part 6 — Complete inventory
 
-## 6.1 Every Python file (56 files, 7,640 lines)
+## 6.1 Every Python file (57 files, 8,103 lines)
 
 **Data pipeline**
 
@@ -617,7 +631,7 @@ Also: **a single control is not a verdict.** Version 2 above *was* a control, an
 
 **Analysis (9 files)** — `analyze_full_family.py` (267, all 171 tests + BH), `analyze_seed_replication.py` (209), `analyze_rq7.py` (251), `analyze_rq7_multiseed.py` (180), `analyze_rq8.py` (184), `analyze_rq11.py` (147), `analyze_rq12.py` (254), `analyze_rq13.py` (141), `analyze_all_comparisons.py` (109), `analyze_results.py` (71)
 
-**Figures (10 files)** — `make_figures.py` (107), `make_overlay_figure.py` (67), `generate_example_heatmaps.py` (51), `make_figure4_scale_comparison.py` (71), `make_figure5_window_curve.py` (68), `make_figure_architecture.py` (106), `make_figure_leaderboard.py` (70), `make_figure_roadmap.py` (145), `make_figure_significance_heatmap.py` (105), `make_figures_rq7_rq8_rq12.py` (265)
+**Figures (11 files)** — `make_figures.py` (107), `make_overlay_figure.py` (67), `generate_example_heatmaps.py` (51), `make_figure4_scale_comparison.py` (71), `make_figure5_window_curve.py` (68), `make_figure_architecture.py` (106), `make_figure_leaderboard.py` (70), `make_figure_roadmap.py` (145), `make_figure_significance_heatmap.py` (105), `make_figures_rq7_rq8_rq12.py` (265), `make_figures_dataset_and_evidence.py` (463)
 
 ## 6.2 Cluster jobs — 111 SLURM jobs, 22.4 GPU-hours
 
@@ -625,9 +639,13 @@ Notable runtimes: baseline training 24m · P′ training 37m · RQ3b eval 19m ·
 
 **Development discipline:** every experiment was smoke-tested on the 10-minute `dev` partition before submitting a real job (12 `smoke_test_*.sbatch` scripts). This caught several bugs that would otherwise have wasted hours of queue time. Eight RQ7 seed jobs failed on first submission (a bad argument) and were caught in 8 seconds each because of it.
 
-## 6.3 Figures (14)
+## 6.3 Figures (20)
 
-`fig_architecture` · `fig1_dice_vs_volume` · `fig2_rq1_vs_rq2` · `fig3_example_overlays` · `fig4_scale_comparison` · `fig5_window_curve` · `fig_leaderboard` · `fig_roadmap` · `fig_significance_heatmap` · `fig_pprime_size` · `fig_rq7_encoder` · `fig_rq8_compositionality` · `fig_rq12_threshold_reversal` · `fig_rq12_window_curve`
+**Dataset (2):** `fig_dataset_split` · `fig_dataset_volumes`
+
+**Method and results (10):** `fig_architecture` · `fig1_dice_vs_volume` · `fig2_rq1_vs_rq2` · `fig3_example_overlays` · `fig4_scale_comparison` · `fig5_window_curve` · `fig_leaderboard` · `fig_roadmap` · `fig_significance_heatmap` · `fig_pprime_size`
+
+**Evidence for specific claims (8):** `fig_rq7_encoder` · `fig_rq8_compositionality` · `fig_rq12_threshold_reversal` · `fig_rq12_window_curve` · `fig_otsu_calibration` · `fig_pointing_game` · `fig_seed_replication` · `fig_shortcut_probe`
 
 Every figure regenerates from the result CSVs; none was drawn by hand. Colours use the Okabe-Ito colourblind-safe palette, verified computationally (all pairs clear ΔE ≥ 8 under simulated protanopia and deuteranopia).
 

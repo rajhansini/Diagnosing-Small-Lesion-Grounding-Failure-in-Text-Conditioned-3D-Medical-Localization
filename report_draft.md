@@ -64,6 +64,12 @@ All volumes were intensity-normalized (z-score within the brain mask, per modali
 
 Split: 296 train / 73 held-out validation patients (80/20, fixed seed).
 
+![Dataset composition. Left: the 296/73 split. Right: patients per region × size bin, train and validation. Validation counts (labelled) are what every result in this report is measured on; they range from n=20 to n=32.](figures/fig_dataset_split.png){width=100%}
+
+![Left: lesion volume distributions per region on a log axis, with the tercile cutoffs drawn as black bars. Right: the same data per patient. The shaded band marks where "large ET" and "small WT" overlap — the reason size bins are defined per region rather than globally.](figures/fig_dataset_volumes.png){width=100%}
+
+The right-hand panel above shows the structural constraint that governs the whole design: the three regions overlap so heavily in absolute volume that a *large* enhancing tumor is physically smaller than a *small* whole tumor. A global size threshold would therefore be measuring which region a case belongs to rather than how large its lesion is.
+
 ## 5. Method
 
 **Text encoder**: `microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext`, mean-pooled over non-padding tokens. Four base region descriptions (ET/TC/WT/NONE, ~3 template sentences each). Raw PubMedBERT sentence embeddings for these four classes have ~0.99 pairwise cosine similarity — BERT anisotropy (Section 3), not a bug. This means the *trainable projection head*, not the frozen text encoder, is responsible for introducing discriminability.
@@ -215,6 +221,8 @@ We therefore recomputed the heatmap once per (patient, region) with the identica
 | WT | small | 38,995 mm³ | 1,371,023 mm³ | 35.2× | 15.4% |
 | WT | large | 164,364 mm³ | 1,022,709 mm³ | 6.2× | 11.5% |
 
+![Otsu's predicted mask volume against true lesion volume, log axes. A calibrated predictor would follow the dashed diagonal; instead predictions form a near-flat cloud two orders of magnitude above it, trending *downward*.](figures/fig_otsu_calibration.png){width=100%}
+
 Otsu returns a near-constant 8-15% of the imaged volume whatever the target's size. Worse, the correlation between true and predicted volume is **negative in all three regions** (ET ρ=−0.374, p=0.0018; TC ρ=−0.258, p=0.028; WT ρ=−0.475, p=2.2×10⁻⁵), where a calibrated predictor would approach +1. The thresholding step assigns *larger* masks to *smaller* lesions, mechanically manufacturing part of the size effect Section 6.2 attributes to grounding.
 
 **The cost of that step is large and paired-significant in 8 of 9 bins.**
@@ -257,6 +265,8 @@ Enhancing tumor's collapse is essentially entirely genuine; tumor core's and who
 | WT | small | 32 | 17 | 0.531 | 0.0044 | 121.6× | 4.1×10⁻³² | 0.0 mm |
 | WT | medium | 21 | 18 | 0.857 | 0.0105 | 81.9× | 2.9×10⁻³³ | 0.0 mm |
 | WT | large | 20 | 17 | 0.850 | 0.0184 | 46.2× | 3.5×10⁻²⁷ | 0.0 mm |
+
+![The pointing game across every region and size bin at both window sizes, against each bin's own chance level (black dashes, all below 2%). Every bar clears chance except ET-small at 32³, which is exactly zero.](figures/fig_pointing_game.png){width=100%}
 
 The correction matters most where the model was already doing well: whole-tumor small goes from 6/32 hits to 17/32, and tumor-core large from 13/23 to 16/23. **The headline claim is unaffected: enhancing-tumor small remains 0 hits in 21 patients under both rules.** The old first-argmax numbers are retained in the analysis log for comparison.
 
@@ -342,6 +352,8 @@ To separate "does a smaller receptive field help" from "does naively combining m
 
 Where the win is real (TC, WT), it also isn't free computationally. The 16³/stride-8 sweep does 3,375 forward passes per volume versus the 32³/stride-16 baseline's 343 — a 9.8× increase — and matches in wall-clock: the RQ1 evaluation job ran in 2m47s, the RQ3b job in 19m17s, roughly 7×. "No retraining needed" is accurate; "free" is not, and we shouldn't have said it that way.
 
+![RQ1 baseline vs. the isolated 16³ window (RQ3b) vs. scale-matched retraining (RQ4), by region and size bin. Otsu-scored.](figures/fig4_scale_comparison.png){width=92%}
+
 Even with those caveats, the large/small *ratio* barely moves either way (ET 14.9×→14.4×, TC 9.3×→8.6×, WT 4.9×→4.8×) — this is a real lift to absolute quality for two of three regions, not a fix for the underlying relative size gap.
 
 > **Read this section together with Section 7.11.** Every number above is scored under Otsu, and RQ12 later shows the smaller-window advantage is specific to that binarizer and reverses under better-calibrated ones. The statistics here are correct as computed; what they measure turned out not to be what we thought.
@@ -385,6 +397,8 @@ Training reached a *better* classification accuracy than RQ2 (0.668 vs. 0.552 be
 | "small" (16³→32³) | −0.401 ± 0.010 |
 | "medium" (32³ native) | +0.026 ± 0.010 |
 | "large" (64³→32³) | +0.149 ± 0.008 |
+
+![The RQ4 noise probe. Left: pure Gaussian noise containing no anatomy separates almost perfectly across the three resize pipelines. Right: the cross-check revealing a "large"-class hub rather than per-scale recognition.](figures/fig_shortcut_probe.png){width=100%}
 
 A one-way ANOVA across the three noise groups gives F=59,672, p≈4×10⁻²⁵¹ — an essentially complete, non-overlapping separation, on pure noise with no tumor present. **This confirms the model is not relying on real content for a substantial part of its size signal.** The mechanism is more specific than we first guessed, though, and worth reporting precisely rather than rounding it off to the original hypothesis: it is not that each pipeline gets cleanly fingerprinted to its own label. Every noise pipeline — including "small" and "medium" — scores *highest* against the **"large"** text embedding (small-pipeline noise: −0.400 vs. "small" text, but +0.015 vs. "large" text; medium-pipeline noise: +0.023 vs. "medium" text, but +0.126 vs. "large" text). This looks like a generic bias toward the "large" class dominating almost regardless of input — an embedding-space hub or degenerate solution — rather than genuine per-scale artifact recognition. Either way, the conclusion is the same: RQ4's size classification is not reliably grounded in real tumor content, which is a sufficient and now directly-verified explanation for why its improved training-time accuracy failed to produce better localization. Combined with RQ3's finding that max-ensembling across scales amplifies whichever scale is noisiest, RQ4 appears to inherit both problems at once.
 
@@ -492,6 +506,8 @@ Section 6.2 replicated the *core* finding across three splits, but every ablatio
 | RQ4 (scale-matched) | −0.0376 | −0.0466 | −0.0109 | −0.0317 | 6 / 9 |
 | RQ5 (naturalistic text) | +0.0035 | +0.0528 | +0.0641 | +0.0401 | 6 / 9 |
 | RQ6 (uniformity fix) | −0.0231 | −0.0378 | −0.0295 | −0.0301 | 7 / 9 |
+
+![Each ablation retrained three times: one dot per run, tick at the mean, grey band the retraining noise floor.](figures/fig_seed_replication.png){width=100%}
 
 All four hold their *direction* in all three runs, so the headline verdicts — RQ2 helps on average, RQ4 and RQ6 hurt — are not split artifacts. Three qualifications follow, and one is a correction.
 
