@@ -56,3 +56,35 @@ SLURM batch scripts used to run every training and evaluation job on the univers
 | `test_rq4_shortcut.sbatch` | Noise probe confirming RQ4 learned resize artifacts. |
 | `test_rq6_hub_bias.sbatch` | Whether the uniformity regularizer actually broke the embedding hub. |
 | `generate_example_heatmaps.sbatch` | Caches the heatmaps used by the qualitative overlay figure. |
+
+## Line counts, per file
+
+The guidelines ask each directory README to give the purpose and line count of every file. Purposes are grouped by role above; the per-file counts are here.
+
+| Script | Lines | Script | Lines |
+|---|---|---|---|
+| `evaluate_pprime.sbatch` | 16 | `smoke_test_pprime.sbatch` | 18 |
+| `evaluate_rq1.sbatch` | 14 | `smoke_test_rq12.sbatch` | 22 |
+| `evaluate_rq11.sbatch` | 18 | `smoke_test_rq2.sbatch` | 14 |
+| `evaluate_rq12.sbatch` | 18 | `smoke_test_rq3.sbatch` | 38 |
+| `evaluate_rq13.sbatch` | 16 | `smoke_test_rq4.sbatch` | 14 |
+| `evaluate_rq1_seed1.sbatch` | 14 | `smoke_test_rq5.sbatch` | 14 |
+| `evaluate_rq1_seed2.sbatch` | 14 | `smoke_test_rq6.sbatch` | 14 |
+| `evaluate_rq2.sbatch` | 14 | `smoke_test_rq7_rq8_rq11.sbatch` | 36 |
+| `evaluate_rq3.sbatch` | 14 | `smoke_test_seed.sbatch` | 14 |
+| `evaluate_rq3b.sbatch` | 14 | `smoke_test_seed_replication.sbatch` | 32 |
+| `evaluate_rq4.sbatch` | 14 | `test_rq4_shortcut.sbatch` | 14 |
+| `evaluate_rq5.sbatch` | 14 | `test_rq6_hub_bias.sbatch` | 14 |
+| `evaluate_rq6.sbatch` | 14 | `train_baseline.sbatch` | 14 |
+| `evaluate_rq6_single_scale.sbatch` | 14 | `train_baseline_seed1.sbatch` | 14 |
+| `evaluate_rq7.sbatch` | 24 | `train_baseline_seed2.sbatch` | 14 |
+| `evaluate_rq8.sbatch` | 19 | `train_pprime.sbatch` | 16 |
+| `evaluate_seed_replication.sbatch` | 19 | `train_rq2.sbatch` | 14 |
+| `evaluate_window12.sbatch` | 14 | `train_rq4.sbatch` | 14 |
+| `evaluate_window6.sbatch` | 14 | `train_rq5.sbatch` | 14 |
+| `evaluate_window8.sbatch` | 14 | `train_rq6.sbatch` | 14 |
+| `generate_example_heatmaps.sbatch` | 14 | `train_rq7.sbatch` | 23 |
+| `sanity_check_localize.sbatch` | 14 | `train_seed_replication.sbatch` | 21 |
+| `smoke_test.sbatch` | 15 |  |  |
+
+**Total: 45 scripts, 757 lines.**

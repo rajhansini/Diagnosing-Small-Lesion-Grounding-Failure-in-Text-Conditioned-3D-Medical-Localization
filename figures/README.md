@@ -5,6 +5,10 @@ training logs in [`../logs/`](../logs/) and (for two panels) the preprocessed ma
 thirteen figure scripts in [`../src/`](../src/). None was drawn or edited by hand, so a figure and
 the corresponding table in the report cannot drift apart.
 
+This directory contains images, not source code, so there are no line counts to report here; the
+per-file line counts for the thirteen scripts that draw these figures are in
+[`../src/README.md`](../src/README.md).
+
 Colours follow the Okabe-Ito colourblind-safe palette throughout, verified computationally (all pairs
 clear ΔE ≥ 8 under simulated protanopia and deuteranopia).
 
