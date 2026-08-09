@@ -30,6 +30,7 @@ looked at:
 Every number is recomputed from results/*.csv or the preprocessed masks at draw time. Colour follows
 the project's fixed Okabe-Ito order, matching make_figures_supplementary.py.
 """
+import csv
 import os
 import sys
 
@@ -37,8 +38,6 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
-from scipy import stats
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from dataset import region_mask
@@ -88,8 +87,16 @@ def style_axes(ax, ylabel=None, xlabel=None, title=None, ygrid=True):
 
 
 def res(name):
-    """Load a results CSV by filename."""
-    return pd.read_csv(os.path.join(RESULTS_DIR, name))
+    """Load a results CSV as a list of dicts.
+
+    Args:
+        name: filename inside results/.
+
+    Returns:
+        List of row dicts with string values; callers cast the columns they use.
+    """
+    with open(os.path.join(RESULTS_DIR, name), newline="") as fh:
+        return list(csv.DictReader(fh))
 
 
 def sweep_csv(window, stride):
@@ -97,9 +104,54 @@ def sweep_csv(window, stride):
     return res(f"rq12_grounding_window{window}_stride{stride}_scores.csv")
 
 
-def rule(df, method):
-    """Filter a multi-binarizer table down to one rule."""
-    return df[df.threshold_method == method]
+def sel(rows, **conditions):
+    """Filter rows by exact string match on any set of columns.
+
+    Args:
+        rows: list of row dicts.
+        **conditions: column=value pairs, e.g. region="ET", size_bin="small".
+
+    Returns:
+        The subset of rows matching every condition.
+    """
+    return [r for r in rows if all(r[k] == v for k, v in conditions.items())]
+
+
+def rule(rows, method):
+    """Filter a multi-binarizer table down to one binarization rule."""
+    return sel(rows, threshold_method=method)
+
+
+def col(rows, key, cast=float):
+    """Extract one column as a numpy array."""
+    return np.array([cast(r[key]) for r in rows])
+
+
+def mean(rows, key):
+    """Mean of one numeric column."""
+    return float(col(rows, key).mean()) if rows else float("nan")
+
+
+def pair(rows_a, rows_b, key="dice"):
+    """Align two score tables on (patient, region) and return the two matched value arrays.
+
+    Every comparison in this project is paired within patient, so a delta between two arms has to be
+    built from the intersection of their patient sets rather than from their independent means.
+
+    Args:
+        rows_a: baseline rows.
+        rows_b: comparison rows.
+        key: numeric column to extract.
+
+    Returns:
+        (values_a, values_b) as numpy arrays over the shared (patient, region) keys, in a fixed
+        order.
+    """
+    idx_b = {(r["patient_id"], r["region"]): r for r in rows_b}
+    shared = [(r, idx_b[(r["patient_id"], r["region"])]) for r in rows_a
+              if (r["patient_id"], r["region"]) in idx_b]
+    return (np.array([float(a[key]) for a, _ in shared]),
+            np.array([float(b[key]) for _, b in shared]))
 
 
 def caption(fig, text):
@@ -145,10 +197,10 @@ def fig_iou_dice():
     labels, dice_v, iou_v = [], [], []
     for reg in REGIONS:
         for b in BINS:
-            sub = base[(base.region == reg) & (base.size_bin == b)]
+            sub = sel(base, region=reg, size_bin=b)
             labels.append(f"{reg}\n{b}")
-            dice_v.append(sub.dice.mean())
-            iou_v.append(sub.iou.mean())
+            dice_v.append(mean(sub, "dice"))
+            iou_v.append(mean(sub, "iou"))
     ax.bar(x - width / 2, dice_v, width, color=BLUE, label="Dice")
     ax.bar(x + width / 2, iou_v, width, color=SKY, label="IoU")
     for i, (d, u) in enumerate(zip(dice_v, iou_v)):
@@ -172,10 +224,10 @@ def fig_iou_dice():
             ("RQ6", res("rq6_localization_scores.csv"))]
     dd, du, names = [], [], []
     for name, other in arms:
-        m = base.merge(other[["patient_id", "region", "dice", "iou"]],
-                       on=["patient_id", "region"], suffixes=("_b", "_o"))
-        dd.append((m.dice_o - m.dice_b).mean())
-        du.append((m.iou_o - m.iou_b).mean())
+        dice_b, dice_o = pair(base, other, "dice")
+        iou_b, iou_o = pair(base, other, "iou")
+        dd.append(float((dice_o - dice_b).mean()))
+        du.append(float((iou_o - iou_b).mean()))
         names.append(name)
     for name, a, b in zip(names, dd, du):
         color = GREEN if a > 0 else ORANGE
@@ -220,9 +272,9 @@ def fig_per_patient_spread():
     rng = np.random.default_rng(0)
     for ax, reg in zip(axes, REGIONS):
         for i, b in enumerate(BINS):
-            for j, (df, color, label) in enumerate(
+            for j, (tbl, color, label) in enumerate(
                     [(base_p, INK_MUTED, "32³ window"), (better, REGION_COLORS[reg], "12³ window")]):
-                vals = df[(df.region == reg) & (df.size_bin == b)].dice.values
+                vals = col(sel(tbl, region=reg, size_bin=b), "dice")
                 xpos = i + (j - 0.5) * 0.34
                 ax.scatter(xpos + rng.normal(0, 0.035, len(vals)), vals, s=13, alpha=0.55,
                            color=color, edgecolor="none", zorder=2,
@@ -262,18 +314,20 @@ def fig_effect_sizes():
                              gridspec_kw={"height_ratios": [1, 1.15], "hspace": 0.42})
 
     ax = axes[0]
-    sig = fam.q_pooled < 0.05
-    tiny = fam.delta.abs() < 0.01
+    q_pooled = col(fam, "q_pooled")
+    abs_delta = np.abs(col(fam, "delta"))
+    sig = q_pooled < 0.05
+    tiny = abs_delta < 0.01
     ax.axhspan(1e-4, 0.01, color=AMBER, alpha=0.10, zorder=0)
     ax.text(1.5e-11, 0.0072, "  significant but negligible  (|Δ| < 0.01 Dice)", fontsize=8.2,
             color="#8a6d0b", va="center", ha="left")
     ax.axvline(0.05, color=INK_MUTED, linewidth=1.0, linestyle="--")
     ax.text(0.062, 0.30, "BH q = 0.05", fontsize=8, color=INK_MUTED, rotation=90, va="top")
-    ax.scatter(fam.q_pooled[sig & ~tiny], fam.delta.abs()[sig & ~tiny], s=26, color=BLUE,
+    ax.scatter(q_pooled[sig & ~tiny], abs_delta[sig & ~tiny], s=26, color=BLUE,
                alpha=0.75, edgecolor="none", label=f"significant, substantive ({(sig & ~tiny).sum()})")
-    ax.scatter(fam.q_pooled[sig & tiny], fam.delta.abs()[sig & tiny], s=26, color=AMBER,
+    ax.scatter(q_pooled[sig & tiny], abs_delta[sig & tiny], s=26, color=AMBER,
                alpha=0.85, edgecolor="none", label=f"significant, negligible ({(sig & tiny).sum()})")
-    ax.scatter(fam.q_pooled[~sig], fam.delta.abs()[~sig], s=26, color="#bcbcb8",
+    ax.scatter(q_pooled[~sig], abs_delta[~sig], s=26, color="#bcbcb8",
                alpha=0.8, edgecolor="none", label=f"not significant ({(~sig).sum()})")
     ax.set_xscale("log")
     ax.set_yscale("log")
@@ -300,15 +354,15 @@ def fig_effect_sizes():
              "RQ4 (scale-matched)": "RQ4   scale-matched retraining"}
     ax.axvline(0, color=INK_MUTED, linewidth=1.0)
     for i, comp in enumerate(order):
-        sub = fam[fam.comparison == comp]
+        sub = sel(fam, comparison=comp)
         y = len(order) - 1 - i
-        lo, hi = sub.ci_lo.min(), sub.ci_hi.max()
-        mean = sub.delta.mean()
-        color = GREEN if mean > 0 else ORANGE
+        lo, hi = col(sub, "ci_lo").min(), col(sub, "ci_hi").max()
+        centre = mean(sub, "delta")
+        color = GREEN if centre > 0 else ORANGE
         ax.plot([lo, hi], [y, y], color=color, linewidth=2.2, alpha=0.45, solid_capstyle="round")
-        ax.scatter(sub.delta, [y] * len(sub), s=22, color=color, alpha=0.9,
+        ax.scatter(col(sub, "delta"), [y] * len(sub), s=22, color=color, alpha=0.9,
                    edgecolor="white", linewidth=0.6, zorder=3)
-        ax.scatter([mean], [y], s=80, marker="|", color=INK, zorder=4, linewidth=2.0)
+        ax.scatter([centre], [y], s=80, marker="|", color=INK, zorder=4, linewidth=2.0)
     ax.set_yticks(range(len(order)))
     ax.set_yticklabels([short[c] for c in reversed(order)], fontsize=8.4, family="monospace")
     style_axes(ax, xlabel="Δ Dice vs the RQ1 baseline  (9 region×bin tests per row)", ygrid=False)
@@ -341,7 +395,7 @@ def fig_bh_correction():
     fig, axes = plt.subplots(1, 2, figsize=(12.8, 4.4))
 
     ax = axes[0]
-    p = np.sort(fam.p_raw.values)
+    p = np.sort(col(fam, "p_raw"))
     m = len(p)
     i = np.arange(1, m + 1)
     ax.plot(i, p, color=BLUE, linewidth=1.8, label="observed p-values, sorted")
@@ -349,7 +403,7 @@ def fig_bh_correction():
             label="BH threshold  (i/m)·α,  α = 0.05")
     ax.axhline(0.05, color=INK_MUTED, linewidth=1.0, linestyle=":",
                label="uncorrected α = 0.05")
-    n_sig = (fam.q_pooled < 0.05).sum()
+    n_sig = int((col(fam, "q_pooled") < 0.05).sum())
     ax.axvline(n_sig, color=GREEN, linewidth=1.4)
     ax.text(n_sig - 3, 0.6, f"{n_sig} rejected", fontsize=8.4, color=GREEN,
             rotation=90, ha="right", va="top")
@@ -361,27 +415,29 @@ def fig_bh_correction():
     ax.legend(frameon=False, fontsize=8.2, loc="lower right")
 
     ax = axes[1]
-    early = fam[fam.comparison.isin(["RQ2 (size-conditioned text)", "RQ3 (multi-scale ensemble)",
-                                     "RQ3b (16^3 window)"])]
-    pe = np.sort(early.p_raw.values)
+    early = [r for r in fam if r["comparison"] in ("RQ2 (size-conditioned text)",
+                                                   "RQ3 (multi-scale ensemble)",
+                                                   "RQ3b (16^3 window)")]
+    pe = np.sort(col(early, "p_raw"))
     me = len(pe)
     qe = np.minimum.accumulate((pe * me / np.arange(1, me + 1))[::-1])[::-1]
     lookup = dict(zip(pe, qe))
-    rq3b = fam[fam.comparison == "RQ3b (16^3 window)"].copy()
-    rq3b["q_early"] = rq3b.p_raw.map(lookup)
-    labels = [f"{r.region} {r['bin']}" for _, r in rq3b.iterrows()]
+    rq3b = sel(fam, comparison="RQ3b (16^3 window)")
+    q_early = np.array([lookup[float(r["p_raw"])] for r in rq3b])
+    q_final = col(rq3b, "q_pooled")
+    labels = [f"{r['region']} {r['bin']}" for r in rq3b]
     y = np.arange(len(rq3b))
     # A dumbbell rather than bars: the q-values span seven orders of magnitude, and bars anchored at
     # zero on a log axis render the smallest ones as nothing at all.
-    for yi, (_, r) in zip(y, rq3b.iterrows()):
-        ax.plot([r.q_early, r.q_pooled], [yi, yi], color=GRID, linewidth=1.6, zorder=1)
-    ax.scatter(rq3b.q_early, y, s=52, color="#bcbcb8", zorder=3, edgecolor="white", linewidth=1.0)
-    ax.scatter(rq3b.q_pooled, y, s=52, color=BLUE, zorder=3, edgecolor="white", linewidth=1.0)
+    for yi, early_q, final_q in zip(y, q_early, q_final):
+        ax.plot([early_q, final_q], [yi, yi], color=GRID, linewidth=1.6, zorder=1)
+    ax.scatter(q_early, y, s=52, color="#bcbcb8", zorder=3, edgecolor="white", linewidth=1.0)
+    ax.scatter(q_final, y, s=52, color=BLUE, zorder=3, edgecolor="white", linewidth=1.0)
     top = len(rq3b) - 1
-    ax.annotate("family of 27\n(when RQ3b was run)", xy=(rq3b.q_early.iloc[top], top),
+    ax.annotate("family of 27\n(when RQ3b was run)", xy=(q_early[top], top),
                 xytext=(0, 16), textcoords="offset points", ha="center",
                 fontsize=7.8, color=INK_MUTED)
-    ax.annotate("family of 171\n(final)", xy=(rq3b.q_pooled.iloc[top], top),
+    ax.annotate("family of 171\n(final)", xy=(q_final[top], top),
                 xytext=(0, -30), textcoords="offset points", ha="center",
                 fontsize=7.8, color=BLUE)
     ax.axvline(0.05, color=ORANGE, linewidth=1.4, linestyle="--")
@@ -416,7 +472,7 @@ def fig_checkpoint_sensitivity():
     weights are scored. The +0.038 'random-init BERT beats PubMedBERT' effect that carried a
     within-run p of 6e-35 is -0.0008 at the best-validation checkpoint of the very same run.
     """
-    base = res("rq1_localization_scores.csv").dice.mean()
+    base = mean(res("rq1_localization_scores.csv"), "dice")
     variants = [("BERT-base", "bertbase"), ("random-init BERT", "randbert"),
                 ("random orthonormal", "randvec_ortho"), ("random @ PubMedBERT geom.", "randvec_aniso")]
     noise = 0.0044   # retraining noise floor, from analyze_rq7_multiseed.py
@@ -431,8 +487,8 @@ def fig_checkpoint_sensitivity():
     x = np.arange(len(variants))
     lasts, bests = [], []
     for _, v in variants:
-        lasts.append(res(f"rq7_{v}_localization_scores.csv").dice.mean() - base)
-        bests.append(res(f"rq7_{v}_best_localization_scores.csv").dice.mean() - base)
+        lasts.append(mean(res(f"rq7_{v}_localization_scores.csv"), "dice") - base)
+        bests.append(mean(res(f"rq7_{v}_best_localization_scores.csv"), "dice") - base)
     ax.bar(x - width / 2, lasts, width, color=BLUE, label="last-epoch checkpoint (the reported comparison)")
     ax.bar(x + width / 2, bests, width, color=AMBER, label="best-validation checkpoint, same runs")
     for xi, (a, b) in enumerate(zip(lasts, bests)):
@@ -473,20 +529,19 @@ def fig_pointing_rules():
     stride-aligned blocks the ground truth intersects.
     """
     d = rule(sweep_csv("32", "16"), "otsu")
-    rows = []
+    t = []
     for reg in REGIONS:
         for b in BINS:
-            sub = d[(d.region == reg) & (d.size_bin == b)]
+            sub = sel(d, region=reg, size_bin=b)
             chances = []
-            for pid in sub.patient_id:
-                mask = np.load(os.path.join(PREPROCESSED_DIR, f"{pid}.npz"))["mask"]
+            for row in sub:
+                mask = np.load(os.path.join(PREPROCESSED_DIR, f"{row['patient_id']}.npz"))["mask"]
                 gt = region_mask(mask, reg)
                 blocks = gt.reshape(8, 16, 8, 16, 8, 16).any(axis=(1, 3, 5))
                 chances.append(blocks.mean())
-            rows.append(dict(region=reg, bin=b, n=len(sub),
-                             argmax=sub.argmax_hit.mean(), centroid=sub.centroid_hit.mean(),
-                             anytied=sub.any_tied_hit.mean(), block_chance=float(np.mean(chances))))
-    t = pd.DataFrame(rows)
+            t.append(dict(region=reg, bin=b, n=len(sub),
+                          argmax=mean(sub, "argmax_hit"), centroid=mean(sub, "centroid_hit"),
+                          anytied=mean(sub, "any_tied_hit"), block_chance=float(np.mean(chances))))
 
     fig, axes = plt.subplots(1, 2, figsize=(13.2, 4.5),
                             gridspec_kw={"width_ratios": [1.5, 1]})
@@ -494,14 +549,15 @@ def fig_pointing_rules():
     ax = axes[0]
     x = np.arange(9)
     width = 0.26
-    ax.bar(x - width, t.argmax, width, color="#bcbcb8", label="argmax corner (naive)")
-    ax.bar(x, t.centroid, width, color=BLUE, label="plateau centroid (the report's rule)")
-    ax.bar(x + width, t.anytied, width, color=PURPLE, label="peak block touches lesion")
-    for xi, ch in enumerate(t.block_chance):
+    ax.bar(x - width, [r["argmax"] for r in t], width, color="#bcbcb8", label="argmax corner (naive)")
+    ax.bar(x, [r["centroid"] for r in t], width, color=BLUE, label="plateau centroid (the report's rule)")
+    ax.bar(x + width, [r["anytied"] for r in t], width, color=PURPLE, label="peak block touches lesion")
+    for xi, row in enumerate(t):
+        ch = row["block_chance"]
         ax.plot([xi + width - 0.12, xi + width + 0.12], [ch, ch], color=INK, linewidth=1.6, zorder=4)
     ax.plot([], [], color=INK, linewidth=1.6, label="chance for the block rule")
     ax.set_xticks(x)
-    ax.set_xticklabels([f"{r.region}\n{r['bin']}" for _, r in t.iterrows()], fontsize=8)
+    ax.set_xticklabels([f"{r['region']}\n{r['bin']}" for r in t], fontsize=8)
     for xv in (2.5, 5.5):
         ax.axvline(xv, color=GRID, linewidth=1.0)
     ax.set_ylim(0, 1.34)
@@ -518,8 +574,8 @@ def fig_pointing_rules():
     rows = []
     for w, s in SWEEP:
         sub = rule(sweep_csv(w, s), "otsu")
-        rows.append((f"{w}³/{s}", int(sub.peak_tie_count.median()),
-                     sub.any_tied_hit.mean() - sub.centroid_hit.mean()))
+        rows.append((f"{w}³/{s}", int(np.median(col(sub, "peak_tie_count"))),
+                     mean(sub, "any_tied_hit") - mean(sub, "centroid_hit")))
     rows.sort(key=lambda r: -r[1])
     xs = np.arange(len(rows))
     ax.bar(xs, [r[2] for r in rows], 0.58, color=PURPLE, alpha=0.85)
@@ -560,7 +616,7 @@ def fig_otsu_selected_fraction():
     ax = axes[0]
     xs = np.arange(len(SWEEP))
     for m in RULES:
-        ys = [rule(sweep_csv(w, s), m).pred_voxels.mean() / TOTAL_VOXELS * 100 for w, s in SWEEP]
+        ys = [mean(rule(sweep_csv(w, s), m), "pred_voxels") / TOTAL_VOXELS * 100 for w, s in SWEEP]
         ax.plot(xs, ys, marker="o", markersize=6, linewidth=2.0 if m == "otsu" else 1.4,
                 color=RULE_COLORS[m], label=RULE_LABELS[m],
                 zorder=4 if m == "otsu" else 2)
@@ -576,16 +632,17 @@ def fig_otsu_selected_fraction():
     ax.legend(frameon=False, fontsize=8.4, loc="center right")
 
     ax = axes[1]
-    a = rule(sweep_csv("8", "4"), "otsu")
-    b = rule(sweep_csv("8", "8"), "otsu")
+    a = col(rule(sweep_csv("8", "4"), "otsu"), "pred_voxels") / TOTAL_VOXELS * 100
+    b = col(rule(sweep_csv("8", "8"), "otsu"), "pred_voxels") / TOTAL_VOXELS * 100
     bins = np.linspace(0, 22, 45)
-    ax.hist(a.pred_voxels / TOTAL_VOXELS * 100, bins=bins, color=BLUE, alpha=0.6,
-            label=f"8³ / stride 4 (50% overlap)\nmean {a.pred_voxels.mean() / TOTAL_VOXELS * 100:.2f}%, "
-                  f"sd {a.pred_voxels.std() / TOTAL_VOXELS * 100:.2f}")
-    ax.hist(b.pred_voxels / TOTAL_VOXELS * 100, bins=bins, color=ORANGE, alpha=0.6,
-            label=f"8³ / stride 8 (no overlap)\nmean {b.pred_voxels.mean() / TOTAL_VOXELS * 100:.2f}%, "
-                  f"sd {b.pred_voxels.std() / TOTAL_VOXELS * 100:.2f}")
-    truth = rule(sweep_csv("32", "16"), "oracle_volume").pred_voxels.mean() / TOTAL_VOXELS * 100
+    # ddof=1: the sample standard deviation, as everywhere else in the project.
+    ax.hist(a, bins=bins, color=BLUE, alpha=0.6,
+            label=f"8³ / stride 4 (50% overlap)\nmean {a.mean():.2f}%, "
+                  f"sd {a.std(ddof=1):.2f}")
+    ax.hist(b, bins=bins, color=ORANGE, alpha=0.6,
+            label=f"8³ / stride 8 (no overlap)\nmean {b.mean():.2f}%, "
+                  f"sd {b.std(ddof=1):.2f}")
+    truth = mean(rule(sweep_csv("32", "16"), "oracle_volume"), "pred_voxels") / TOTAL_VOXELS * 100
     ax.axvline(truth, color=GREEN, linewidth=1.8)
     ax.text(truth + 0.4, ax.get_ylim()[1] * 0.88, f"true lesion\nfraction {truth:.2f}%",
             fontsize=8.2, color=GREEN)
@@ -622,7 +679,7 @@ def fig_window_curve_per_region():
             ys = []
             for w, s in OVERLAPPED:
                 sub = rule(sweep_csv(w, s), m)
-                ys.append(sub[sub.region == reg].dice.mean())
+                ys.append(mean(sel(sub, region=reg), "dice"))
             ax.plot(xs, ys, marker="o", markersize=6, linewidth=2.0,
                     color=REGION_COLORS[reg], label=reg)
             best = int(np.argmax(ys))
@@ -661,14 +718,14 @@ def fig_cost_benefit():
     fig, ax = plt.subplots(figsize=(9.8, 4.8))
     for (w, s) in SWEEP:
         n = ((GRID_EDGE - int(w)) // int(s) + 1) ** 3
-        dice = rule(sweep_csv(w, s), "pct99").dice.mean()
+        dice = mean(rule(sweep_csv(w, s), "pct99"), "dice")
         overlapped = int(s) * 2 == int(w)
         color = BLUE if overlapped else "#bcbcb8"
         ax.scatter([n], [dice], s=150, color=color, zorder=3, edgecolor="white", linewidth=1.5)
         ax.annotate(f"{w}³ / stride {s}", xy=(n, dice), xytext=(0, 14),
                     textcoords="offset points", ha="center", fontsize=8.4,
                     color=INK if overlapped else INK_MUTED)
-    ov = [(((GRID_EDGE - int(w)) // int(s) + 1) ** 3, rule(sweep_csv(w, s), "pct99").dice.mean())
+    ov = [(((GRID_EDGE - int(w)) // int(s) + 1) ** 3, mean(rule(sweep_csv(w, s), "pct99"), "dice"))
           for w, s in OVERLAPPED]
     ax.plot([o[0] for o in ov], [o[1] for o in ov], color=BLUE, linewidth=1.6, alpha=0.5, zorder=2)
     best_n, best_d = ov[2]

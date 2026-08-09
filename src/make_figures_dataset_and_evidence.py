@@ -333,14 +333,17 @@ def fig_pointing_game():
 def fig_seed_replication():
     """Draw per-seed ablation deltas against the retraining noise floor."""
     def base_file(s):
+        """Filename of the RQ1 baseline scores for seed s (seed 0 uses the un-suffixed name)."""
         return ("rq1_localization_scores.csv" if s == 0
                 else f"rq1_localization_scores_seed{s}.csv")
 
     def arm_file(k, s):
+        """Filename of arm k's scores for seed s; the suffix moved position between conventions."""
         return (f"{k}_localization_scores.csv" if s == 0
                 else f"{k}_seed{s}_localization_scores.csv")
 
     def dmap(rows):
+        """Index one score table by (patient, region) so two arms can be paired patient-wise."""
         return {(r["patient_id"], r["region"]): float(r["dice"]) for r in rows}
 
     bases = {s: load_csv(os.path.join(RESULTS_DIR, base_file(s))) for s in SEEDS}

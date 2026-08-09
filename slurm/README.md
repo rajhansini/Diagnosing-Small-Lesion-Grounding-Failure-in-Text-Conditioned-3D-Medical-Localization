@@ -16,7 +16,7 @@ SLURM batch scripts used to run every training and evaluation job on the univers
 |---|---|
 | `smoke_test.sbatch` | Baseline training end to end on a handful of patients. |
 | `smoke_test_seed.sbatch`, `smoke_test_seed_replication.sbatch` | The seeded-split machinery for cross-seed replication. |
-| `smoke_test_rq2/3/4/5.sbatch` | Each ablation's training and evaluation path. |
+| `smoke_test_rq2/3/4/5/6.sbatch` | Each ablation's training and evaluation path. |
 | `smoke_test_rq7_rq8_rq11.sbatch` | The text-encoder ablations, compositionality probes, and threshold decomposition. |
 | `smoke_test_rq12.sbatch` | The grounding sweep, including its window-32 reproduction gate against RQ11. |
 | `smoke_test_pprime.sbatch` | P′ supervised training and evaluation. |
@@ -43,6 +43,7 @@ SLURM batch scripts used to run every training and evaluation job on the univers
 | `evaluate_rq7.sbatch`, `evaluate_rq8.sbatch`, `evaluate_rq11.sbatch` | Text-encoder ablations, compositionality probes, threshold decomposition. |
 | `evaluate_rq12.sbatch` | Grounding sweep at a given window (`$1` = window size, `$2` = stride). **Stride must match the protocol the corresponding Section 7 result used** — RQ3c's 8³ point used stride 8, RQ1/RQ11 used 32/stride 16 — or the Dice numbers are not comparable. |
 | `evaluate_seed_replication.sbatch` | Generic driver: evaluates any of RQ2/4/5/6 at a given seed. |
+| `evaluate_rq13.sbatch` | Re-scores one retrained arm (`$1` = `rq2`/`rq4`/`rq6`) under all five binarizers, so a retrained arm's verdict can be separated from the threshold it was read at. |
 | `evaluate_pprime.sbatch` | P′ scored against published BraTS ranges and the project's size terciles. |
 
 ## Diagnostics

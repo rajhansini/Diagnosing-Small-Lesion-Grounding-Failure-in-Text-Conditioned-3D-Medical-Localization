@@ -23,7 +23,7 @@ Everything here was already in results/*.csv; none of it had been extracted befo
     TC          9.2x      10.0x          0.978           0.978
     WT          4.9x       5.6x          0.968           0.968
 
-    Every ablation's verdict, recomputed on IoU instead of Dice (pooled, paired Wilcoxon)
+    Every ablation's verdict, recomputed on IoU instead of Dice (pooled, paired)
     arm                             dDice     dIoU   same sign?
     RQ2 (size-conditioned text)    +0.0227  +0.0143   yes
     RQ3 (multi-scale ensemble)     -0.0203  -0.0119   yes
@@ -83,7 +83,7 @@ Everything here was already in results/*.csv; none of it had been extracted befo
     significant raw but NOT after pooled BH: 1
       RQ3b (16^3 window)                ET  large   p=0.0484  q_pooled=0.0571
 
-    The uncomfortable property of the pooled family, made concrete:
+    The awkward property of the pooled family, made concrete:
     the family grew as experiments were added, so a test's q-value depends on experiments
     run after it. Below, the same RQ3b tests corrected against the family as it stood when
     RQ3b was written (RQ2/RQ3/RQ3b only, 27 tests) and against the final 171.
@@ -97,6 +97,10 @@ Everything here was already in results/*.csv; none of it had been extracted befo
     RQ3b (16^3 window)    WT  small   0.0000            0.0000               0.0000
     RQ3b (16^3 window)    WT  medium  0.0001            0.0002               0.0001
     RQ3b (16^3 window)    WT  large   0.0000            0.0000               0.0000
+
+    Note the direction: the LARGER family is marginally more permissive here, because BH's
+    threshold depends on the whole p-value distribution and the later experiments
+    contributed many strongly-significant p-values. No verdict changes either way.
 
 ============================================================================================================
 [D] CHECKPOINT SELECTION -- an axis of variation nothing else in the project varied
@@ -150,15 +154,15 @@ Everything here was already in results/*.csv; none of it had been extracted befo
     which is the architectural reading, measured rather than asserted.
 
     All three rules across the sweep (pooled over regions and bins)
-    window/stride   median ties   argmax   centroid   any-tied
-    32^3 / 16           4096    0.329      0.423      0.817
-    16^3 / 8             512    0.587      0.587      0.789
-    12^3 / 6             216    0.592      0.540      0.690
-     8^3 / 4              64    0.516      0.484      0.545
-     8^3 / 8             512    0.207      0.324      0.408
-     6^3 / 6             216    0.216      0.282      0.366
-    The three rules converge as the plateau shrinks, which is what a rule-sensitivity
-    check should look like: the ambiguity is a property of the stride, not of the model.
+    window/stride   median ties   argmax   centroid   any-tied   spread
+    32^3 / 16           4096    0.329      0.423      0.817    0.394
+    16^3 / 8             512    0.587      0.587      0.789    0.202
+    12^3 / 6             216    0.592      0.540      0.690    0.150
+     8^3 / 4              64    0.516      0.484      0.545    0.061
+     8^3 / 8             512    0.207      0.324      0.408    0.085
+     6^3 / 6             216    0.216      0.282      0.366    0.085
+    The rules converge as the plateau shrinks, which is what a rule-sensitivity check
+    should look like: the ambiguity is a property of the stride, not of the model.
 
 ============================================================================================================
 [F] WHAT EACH RULE ACTUALLY SELECTS -- the mechanism behind the sign disagreement
@@ -230,7 +234,7 @@ Everything here was already in results/*.csv; none of it had been extracted befo
      8^3 / 8             4096         11.9x        0.2574                0.0629  (non-overlapping)
      6^3 / 6             9261         27.0x        0.2465                0.0266  (non-overlapping)
 
-    Measured wall-clock, from the SLURM logs (73 validation patients x 3 regions):
+    Recorded job runtimes (73 validation patients x 3 regions, one RTX 2080 Ti):
       32^3 / 16 (RQ1 protocol)       2.8 min
       16^3 / 8  (RQ3b)              19.3 min
       12^3 / 6  (RQ3c)              52.0 min

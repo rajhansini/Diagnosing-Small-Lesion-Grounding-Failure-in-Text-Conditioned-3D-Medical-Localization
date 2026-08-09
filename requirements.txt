@@ -1,0 +1,43 @@
+# Dependencies for "Diagnosing Small-Lesion Grounding Failure in Text-Conditioned 3D Medical
+# Localization". These are the exact versions every result in the report was produced under, read
+# off the project environment (conda env `nlp_project`, Python 3.10.20).
+#
+# Three of these pins are load-bearing, not cosmetic. Section 9 of the report tells the full story;
+# the short version, so nobody re-derives it the expensive way:
+#
+#   torch==2.4.0+cu121   The cluster's GPUs are validated against CUDA 12.1. Installing MONAI
+#                        unpinned pulls a newer torch built against CUDA 13, and the `nvidia-*-cu12`
+#                        and `nvidia-*-cu13` pip packages install their shared objects into the SAME
+#                        internal path (`nvidia/cudnn/lib/`). Uninstalling the cu13 package then
+#                        deletes the cu12 package's real .so files while leaving its metadata intact,
+#                        producing `libcudnn.so.9: cannot open shared object file` from a package pip
+#                        still reports as healthy. Recovering needs a force-reinstall of every
+#                        affected cu12 package.
+#
+#   monai==1.4.0         Pinned precisely so it does not force the torch upgrade above.
+#
+#   transformers==4.40.0 PubMedBERT ships only a legacy `pytorch_model.bin` (no safetensors exists
+#                        in that model's repo). Later transformers refuse to load that format unless
+#                        torch>=2.6 — a defensive measure against a real torch CVE, not a functional
+#                        requirement here. Bumping transformers would force bumping torch and
+#                        reopen the CUDA problem, so transformers is held back instead.
+#
+# Python must be 3.10: the kaggle CLI >=1.8.0 needed by newly-generated API tokens requires >=3.11,
+# so the data download uses Kaggle's legacy API key format with the older, compatible CLI.
+#
+# Install (the cu121 wheels are not on PyPI proper):
+#   conda create -p ./conda_envs/nlp_project python=3.10.20 && conda activate ./conda_envs/nlp_project
+#   pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu121
+
+torch==2.4.0+cu121
+monai==1.4.0
+transformers==4.40.0
+tokenizers==0.19.1
+
+numpy==1.26.4
+scipy==1.15.3
+matplotlib==3.10.9
+nibabel==5.4.2
+
+# Data download only (see README step 2); not imported by any script in src/.
+kaggle==1.7.4.5

@@ -169,12 +169,14 @@ def fig_anisotropy():
     proj = raw_mat @ state["text_proj.weight"].T.float() + state["text_proj.bias"].float()
 
     def cosmat(m):
+        """Pairwise cosine-similarity matrix of a stack of row vectors."""
         n = torch.nn.functional.normalize(m, dim=-1)
         return (n @ n.T).numpy()
 
     before, after = cosmat(raw_mat), cosmat(proj)
 
     def offdiag_mean(m):
+        """Mean of a square matrix's off-diagonal entries — the anisotropy statistic."""
         return float(m[~np.eye(len(m), dtype=bool)].mean())
 
     fig, axes = plt.subplots(1, 3, figsize=(14.2, 4.2),

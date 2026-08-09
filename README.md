@@ -47,7 +47,7 @@ Not included in this repo (see below for how to regenerate):
 
 ## Reproducing this project
 
-1. **Environment**: Python 3.10, PyTorch 2.4.0+cu121, MONAI 1.4.0, transformers 4.40.0. See `src/` imports for the full dependency list.
+1. **Environment**: Python 3.10, PyTorch 2.4.0+cu121, MONAI 1.4.0, transformers 4.40.0. `requirements.txt` pins every version the reported results were produced under, and documents *why* the torch/MONAI/transformers pins cannot be bumped independently (Section 9 of the report tells the longer story). Install with `pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu121`.
 2. **Data**: download BraTS2020 from Kaggle (`awsaf49/brats20-dataset-training-validation`) into `data/BraTS2020_TrainingData/`.
 3. **Preprocess**: `python src/preprocess.py` — normalizes volumes, resizes to 128³, computes per-patient lesion volumes for size-bin stratification.
 4. **Text embeddings**: `python src/text_encoder.py` — embeds all region descriptions (base, size-conditioned, and naturalistic variants) with PubMedBERT.
