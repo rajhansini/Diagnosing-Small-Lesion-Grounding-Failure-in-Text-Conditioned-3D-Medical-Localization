@@ -22,7 +22,7 @@ It is organised as:
 | **6** | Complete inventory: 60 scripts, 111 cluster jobs, 53 result files, 38 figures |
 | **7** | How to reproduce everything |
 
-**Scale of the work:** 60 Python files (10,163 lines), 45 cluster job scripts, **111 SLURM jobs totalling 22.4 GPU-hours**, 53 per-patient result tables, 171 statistical tests, 38 figures.
+**Scale of the work:** 60 Python files (10,323 lines), 45 cluster job scripts, **111 SLURM jobs totalling 22.4 GPU-hours**, 53 per-patient result tables, 171 statistical tests, 38 figures.
 
 \newpage
 
@@ -657,7 +657,7 @@ Also: **a single control is not a verdict.** Version 2 above *was* a control, an
 
 # Part 6 — Complete inventory
 
-## 6.1 Every Python file (60 files, 10,163 lines)
+## 6.1 Every Python file (60 files, 10,323 lines)
 
 **Data pipeline**
 
@@ -775,7 +775,7 @@ One row per (patient, region) with Dice, IoU, size bin and true volume. Naming: 
 
 # Closing summary
 
-**What was built.** A complete text-conditioned 3D localization pipeline: preprocessing, contrastive alignment, sliding-window localization, five binarization rules, three localization metrics, and a twelve-tool diagnostic layer — 60 files, 10,163 lines, 111 cluster jobs, 38 figures.
+**What was built.** A complete text-conditioned 3D localization pipeline: preprocessing, contrastive alignment, sliding-window localization, five binarization rules, three localization metrics, and a twelve-tool diagnostic layer — 60 files, 10,323 lines, 111 cluster jobs, 38 figures.
 
 **What was found.**
 

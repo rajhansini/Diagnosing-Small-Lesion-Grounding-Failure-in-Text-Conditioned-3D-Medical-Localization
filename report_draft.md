@@ -888,7 +888,7 @@ This was an individual project; all design decisions, code, experiments, and wri
 
 **Where the time actually went, versus where I expected.** I expected the bulk of the effort to be in getting a model to work. It was not — the baseline trained on essentially the first serious attempt. The real cost was in *checking* results, and the checks were where the project's actual content came from. Six conclusions I had already written up as findings did not survive their own follow-up test (Section 8), and the one that hurt most — discovering that this project's apparent best intervention won only under the threshold I had standardized on — arrived late enough that it required rewriting the report's conclusion rather than just adding a caveat. If I ran this project again I would build the diagnostic layer first and the model second (Section 10).
 
-**Scale of the finished work.** 60 Python files totalling 10,163 lines, 45 SLURM batch scripts driving 111 cluster jobs and 22.4 GPU-hours, 53 per-patient result tables, 171 paired significance tests, and 38 figures — every one of which regenerates from the result CSVs and training logs, so no number in this report was transcribed by hand. A companion document, `work_log.pdf`, walks through all fifteen experiments in the order they happened and names the script that produced every number.
+**Scale of the finished work.** 60 Python files totalling 10,323 lines, 45 SLURM batch scripts driving 111 cluster jobs and 22.4 GPU-hours, 53 per-patient result tables, 171 paired significance tests, and 38 figures — every one of which regenerates from the result CSVs and training logs, so no number in this report was transcribed by hand. A companion document, `work_log.pdf`, walks through all fifteen experiments in the order they happened and names the script that produced every number.
 
 ## Appendix A — Statistical detail
 
@@ -908,7 +908,7 @@ Everything in this appendix is recomputed by `analyze_full_family.py` and `analy
 
 | Category | Count | Notes |
 |---|---|---|
-| Python files | 60 (10,163 lines) | See `src/README.md` for a file-by-file listing with line counts |
+| Python files | 60 (10,323 lines) | See `src/README.md` for a file-by-file listing with line counts |
 | — data pipeline | 4 | `preprocess.py`, `text_encoder.py`, two text-variant builders |
 | — datasets and model | 6 | Four patch samplers, `model.py`, `localize.py` |
 | — training | 7 | One per arm, each taking `--seed` |

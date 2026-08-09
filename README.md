@@ -26,14 +26,14 @@ Four measurement controls sit underneath every claim: a **chance-level random-he
 
 **Two documents:**
 
-- [`report_draft.pdf`](report_draft.pdf) — the final report, written as a short research paper (40 pp).
+- [`report_draft.pdf`](report_draft.pdf) — the final report, written as a short research paper (54 pp).
 - [`work_log.pdf`](work_log.pdf) — a complete companion account: every one of the fifteen experiments in the order they happened, every script that produced every number, and a plain-language primer that assumes no background in medical imaging, contrastive learning or the statistics used. Also documents the six conclusions this project had to reverse, and how each was caught.
 
 Between them the two documents carry all 38 figures; [`figures/README.md`](figures/README.md) maps each one to the claim it supports and the script that draws it.
 
 ## Repository layout
 
-- `src/` — all code (60 files, 10,163 lines). See [`src/README.md`](src/README.md) for a file-by-file breakdown with line counts.
+- `src/` — all code (60 files, 10,323 lines). See [`src/README.md`](src/README.md) for a file-by-file breakdown with line counts.
 - `slurm/` — SLURM batch scripts for every training and evaluation job. See [`slurm/README.md`](slurm/README.md).
 - `results/` — per-patient CSV outputs from every evaluation run. See [`results/README.md`](results/README.md) for the schema.
 - `figures/` — generated report figures. See [`figures/README.md`](figures/README.md).
