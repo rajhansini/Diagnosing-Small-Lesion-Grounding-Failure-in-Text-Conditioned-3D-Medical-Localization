@@ -18,11 +18,11 @@ It is organised as:
 | **2** | The question, and why it matters |
 | **3** | The machinery: data, model, localization, metrics (with the code that does each) |
 | **4** | All fifteen experiments, in chronological order |
-| **5** | The five conclusions we had to reverse, and how each was caught |
-| **6** | Complete inventory: 58 scripts, 111 cluster jobs, 53 result files, 29 figures |
+| **5** | The six conclusions we had to reverse, and how each was caught |
+| **6** | Complete inventory: 60 scripts, 111 cluster jobs, 53 result files, 38 figures |
 | **7** | How to reproduce everything |
 
-**Scale of the work:** 58 Python files (8,986 lines), 45 cluster job scripts, **111 SLURM jobs totalling 22.4 GPU-hours**, 53 per-patient result tables, 171 statistical tests, 29 figures.
+**Scale of the work:** 60 Python files (10,163 lines), 45 cluster job scripts, **111 SLURM jobs totalling 22.4 GPU-hours**, 53 per-patient result tables, 171 statistical tests, 38 figures.
 
 \newpage
 
@@ -115,7 +115,7 @@ Modern AI can look at a medical scan and a sentence and tell you *whether* they 
 
 ## 2.3 The answer, in one paragraph
 
-The failure is real and is **specific to text-conditioned localization** — a conventional supervised network on identical data barely degrades at all. It is **not a language problem**: replacing the language model with random numbers changes nothing measurable, and the text query behaves as a class label that happens to be spelled in English. It **is** an architecture problem, and exactly one fix works — querying the frozen model with a smaller window. Reaching that answer required reversing five of our own conclusions, all caught by controls rather than by statistics.
+The failure is real and is **specific to text-conditioned localization** — a conventional supervised network on identical data barely degrades at all. It is **not a language problem**: replacing the language model with random numbers changes nothing measurable, and the text query behaves as a class label that happens to be spelled in English. It **is** an architecture problem, and exactly one fix works — querying the frozen model with a smaller window. Reaching that answer required reversing six of our own conclusions, all caught by controls rather than by statistics.
 
 \newpage
 
@@ -387,6 +387,10 @@ Otsu returns a near-constant 8–15% of the brain regardless of target size. Wor
 
 ![Otsu's predicted mask volume against the true lesion volume, per region, both on log axes. A calibrated predictor would follow the dashed diagonal. Instead the predictions form a near-flat cloud two orders of magnitude above it, and the trend runs *downward* — smaller lesions receive larger masks.](figures/fig_otsu_calibration.png){width=100%}
 
+And the direct version of the same point: across the whole window sweep, Otsu is the *only* rule whose selected fraction of the volume can move at all. Dropping overlap at a fixed 8³ window shrinks its mask from 9.12% of the brain to 7.20% — closer to the truth, for a reason that has nothing to do with the heatmap being better. That shift is exactly what it collects the Dice reward for in Part 5.3.
+
+![Left: what fraction of the volume each rule marks as lesion. Only Otsu's line moves. Right: the same window at two strides.](figures/fig_otsu_selected_fraction.png){width=100%}
+
 **Result 2 — the collapse is real but was overstated:**
 
 | Region | L/S under Otsu | L/S under oracle |
@@ -403,7 +407,7 @@ Honest headline: **2.4–14.4×**, not 5–15×.
 
 > **Small enhancing tumor: the model's peak response lands inside the true lesion in 0 of 21 patients.** Exactly chance. Median distance to the nearest lesion voxel: 23.7 mm.
 
-That is not a boundary-drawing failure. The model is not pointing at the lesion at all. It is the sharpest single statement this project can make.
+That is not a boundary-drawing failure — but it is not a failure to search either, and the difference took a third tie-breaking rule to establish. The winning 16³ block *contains* part of the lesion in 9 of 21 cases, 36× the block-level chance of 1.19%. So the model has found the lesion to within a 26 mm block and has no information about where inside it the lesion sits. An earlier draft wrote “the model is not pointing at the lesion at all”; the block rule does not support that, and the narrower version is a better fit to the architecture story anyway. See Part 5.6.
 
 ![What that hit rate is summarising. Each dot is one patient's distance from the peak response to the nearest lesion voxel. ET-small at 32³ (orange, left panel) has almost no mass at zero — the failure is a distribution sitting far from the lesion, not a set of near misses. The blue series is the 8³ window, previewing RQ12: it pulls enhancing tumor toward zero everywhere and pushes tumor core sharply away.](figures/fig_pointing_distance.png){width=100%}
 
@@ -446,6 +450,10 @@ Noise floor = 0.0044.
 3. **The core finding is encoder-independent** — the size collapse persists under every text condition and seed.
 
 ![Each dot is one training run. Grey band = retraining noise floor. Only orange keeps its sign.](figures/fig_rq7_encoder.png){width=98%}
+
+**And a second, cheaper check that says the same thing.** Every RQ7 run saved two checkpoints — its last epoch and its best validation epoch. Scoring the *same trained runs* at the other checkpoint turns the +0.0379 "random-init BERT wins" result into −0.0008. Nothing about the text encoder changed. Two unrelated perturbations — reseed the run, or move the checkpoint — each erase the effect, which is much stronger than either on its own.
+
+![The same four runs at both saved checkpoints. One of four conditions changes sign, and it is the one that produced the headline.](figures/fig_checkpoint_sensitivity.png){width=94%}
 
 ## RQ8 — Is the query language, or a label?
 
@@ -530,6 +538,14 @@ Covered in full in Part 5.3, since it is a correction story. Summary of the fina
 
 ![The full sweep. Only the Otsu curve keeps rising past the tiling change.](figures/fig_rq12_window_curve.png){width=98%}
 
+**One thing the pooled curve hides.** Broken out per region under the calibrated rules, the three regions want three different windows: enhancing tumor peaks at 12³, tumor core at 16³ and then falls away sharply, whole tumor is still climbing at the smallest window tested. That is the same regional split the pointing game found independently — two dissimilar metrics agreeing, which is what Section 8's triangulation tool is for.
+
+![The four overlap-matched conditions, per region, under three rules. Circles mark each region's optimum. Otsu makes all three look monotone.](figures/fig_window_curve_per_region.png){width=100%}
+
+**And it is not free.** The recommended 12³/stride-6 setting does 8,000 forward passes per volume against the baseline's 343 — 23×, and 52 minutes against 2m47s for the whole validation set. Cheap against retraining an arm (24 min, plus labels and an optimiser); not free.
+
+![Forward passes per volume against the Dice each condition buys, under the deployable rule.](figures/fig_cost_benefit.png){width=88%}
+
 ## RQ13 — Do the retrained arms survive a better threshold?
 
 **The question.** RQ12 proved Otsu is not a neutral instrument on the inference-side arms. RQ2/RQ4/RQ6 had only ever been scored under it — and they're suspect for a mechanical reason: each builds its heatmap by taking a **maximum over three queries**, which reshapes the histogram Otsu keys on.
@@ -552,7 +568,7 @@ Covered in full in Part 5.3, since it is a correction story. Summary of the fina
 
 \newpage
 
-# Part 5 — The five conclusions we had to reverse
+# Part 5 — The six conclusions we had to reverse
 
 This is the most valuable part of the project. Each of these was plausible, statistically significant, internally consistent — and wrong. None was caught by a p-value.
 
@@ -607,6 +623,28 @@ Fixed by taking the centroid of the tied-maximum plateau. Several numbers change
 
 Covered above under RQ13. Reported at p = 8×10⁻¹⁷; vanishes under every calibrated threshold.
 
+## 5.6 What the ET-small failure actually is (caught by bounding a rule)
+
+The last one, and the only one that made the paper's thesis *stronger* rather than weaker.
+
+5.4 replaced one rule for locating an ambiguous peak with a better one. That invites an obvious question it did not ask: how much of the headline result is the rule? A third rule had been written to the same CSVs and never used — not "where is the peak" but "does the winning plateau touch the lesion at all". It is not a pointing rule, so it needs its own chance baseline: the fraction of the 512 stride-aligned 16³ blocks that the ground-truth mask intersects, computed per patient from the masks.
+
+**Small enhancing tumor, n = 21:**
+
+| Rule | Hits | Chance | Lift |
+|---|---|---|---|
+| argmax corner | 0 / 21 | 0.05% | 0× |
+| plateau centroid | **0 / 21** | 0.05% | 0× |
+| peak block touches lesion | **9 / 21** | 1.19% | **36×** |
+
+Both *point* rules agree, so the headline stands: the model never points at a small enhancing tumor. But the block rule shows it is not lost either — 36× chance is squarely inside the 12–40× band every other region×bin occupies.
+
+**What changed.** The sentence "the model is not pointing at the lesion at all" is withdrawn. The claim that survives is narrower and sharper: *the model localizes small enhancing tumor to within a 26 mm block and has no information about where inside that block the lesion is.* That is the fixed-receptive-field bottleneck this whole project argues for — and here it is measured directly rather than inferred from Dice.
+
+![Left: all three rules at the published protocol, with each bin's block-level chance as a black tick. Right: the spread between the most and least generous rule, by plateau size — the ambiguity shrinks with the stride that causes it, so it is a property of the protocol, not a doubt about the model.](figures/fig_pointing_rules.png){width=100%}
+
+**Why this one is different from the other five.** Every earlier reversal took something away. This one replaced an overreach with a mechanism. It is also the cheapest of the six: the column had been sitting in the CSVs since the RQ12 run, and nothing had to be re-computed except a chance baseline from the masks.
+
 ## What this adds up to
 
 **A shared confound is not a cancelled confound.** Every arm in this project used the same binarizer, which we argued made comparisons internally fair. That argument was wrong: arms that interact *differently* with a shared instrument can be ranked backwards by it — and no amount of paired testing or FDR correction across those arms will reveal it, because the confound is upstream of every test.
@@ -619,7 +657,7 @@ Also: **a single control is not a verdict.** Version 2 above *was* a control, an
 
 # Part 6 — Complete inventory
 
-## 6.1 Every Python file (58 files, 8,986 lines)
+## 6.1 Every Python file (60 files, 10,163 lines)
 
 **Data pipeline**
 
@@ -647,17 +685,17 @@ Also: **a single control is not a verdict.** Version 2 above *was* a control, an
 
 **Diagnostics (4 files)** — `compute_chance_baseline.py` (60), `sanity_check_localize.py` (72), `test_rq4_shortcut_hypothesis.py` (102), `test_rq6_hub_bias.py` (75)
 
-**Analysis (10 files)** — `analyze_full_family.py` (267, all 171 tests + BH), `analyze_seed_replication.py` (209), `analyze_rq7.py` (251), `analyze_rq7_multiseed.py` (180), `analyze_rq8.py` (184), `analyze_rq11.py` (147), `analyze_rq12.py` (254), `analyze_rq13.py` (141), `analyze_all_comparisons.py` (109), `analyze_results.py` (71)
+**Analysis (11 files)** — `analyze_full_family.py` (267, all 171 tests + BH), `analyze_seed_replication.py` (209), `analyze_rq7.py` (251), `analyze_rq7_multiseed.py` (180), `analyze_rq8.py` (184), `analyze_rq11.py` (147), `analyze_rq12.py` (254), `analyze_rq13.py` (141), `analyze_appendix.py` (465, the eight blocks the CSVs held and nothing had extracted), `analyze_all_comparisons.py` (109), `analyze_results.py` (71)
 
-**Figures (12 files)** — `make_figures.py` (107), `make_overlay_figure.py` (67), `generate_example_heatmaps.py` (51), `make_figure4_scale_comparison.py` (71), `make_figure5_window_curve.py` (68), `make_figure_architecture.py` (106), `make_figure_leaderboard.py` (70), `make_figure_roadmap.py` (145), `make_figure_significance_heatmap.py` (105), `make_figures_rq7_rq8_rq12.py` (265), `make_figures_dataset_and_evidence.py` (463), `make_figures_supplementary.py` (883)
+**Figures (13 files)** — `make_figures.py` (107), `make_overlay_figure.py` (67), `generate_example_heatmaps.py` (51), `make_figure4_scale_comparison.py` (71), `make_figure5_window_curve.py` (68), `make_figure_architecture.py` (106), `make_figure_leaderboard.py` (70), `make_figure_roadmap.py` (145), `make_figure_significance_heatmap.py` (105), `make_figures_rq7_rq8_rq12.py` (265), `make_figures_dataset_and_evidence.py` (463), `make_figures_supplementary.py` (883), `make_figures_appendix.py` (712)
 
 ## 6.2 Cluster jobs — 111 SLURM jobs, 22.4 GPU-hours
 
 Notable runtimes: baseline training 24m · P′ training 37m · RQ3b eval 19m · window-6 eval 64m · window-12 eval 52m · RQ8 probes 15m · 8³/stride-4 eval 32m.
 
-**Development discipline:** every experiment was smoke-tested on the 10-minute `dev` partition before submitting a real job (12 `smoke_test_*.sbatch` scripts). This caught several bugs that would otherwise have wasted hours of queue time. Eight RQ7 seed jobs failed on first submission (a bad argument) and were caught in 8 seconds each because of it.
+**Development discipline:** every experiment was smoke-tested on the 10-minute `dev` partition before submitting a real job (11 `smoke_test_*.sbatch` scripts). This caught several bugs that would otherwise have wasted hours of queue time. Eight RQ7 seed jobs failed on first submission (a bad argument) and were caught in 8 seconds each because of it.
 
-## 6.3 Figures (29)
+## 6.3 Figures (38)
 
 **Dataset (2):** `fig_dataset_split` · `fig_dataset_volumes`
 
@@ -678,6 +716,20 @@ Notable runtimes: baseline training 24m · P′ training 37m · RQ3b eval 19m ·
 | `fig_rq6_uniformity` | the uniformity repair verified in all three of its parts | §7.6 |
 | `fig_rq8_embedding_vs_behavior` | displacement against behavioural change (ρ=+0.41, p=0.19) | §7.9 |
 | `fig_rq13_arms` | the three retrained arms re-scored under every rule | §7.12 |
+
+**Measurements the CSVs held that nothing had looked at (9, `make_figures_appendix.py`):**
+
+| Figure | The claim it carries | Where |
+|---|---|---|
+| `fig_iou_dice` | the second overlap metric, written since the first run and never quoted — 7 of 7 arms keep their sign | §6.2 |
+| `fig_per_patient_spread` | the bounded, right-skewed 20–32-patient distributions every mean in the report averages | §6.2 |
+| `fig_effect_sizes` | all 171 tests by magnitude against adjusted significance; 47 are significant and negligible | §8 |
+| `fig_bh_correction` | the BH step-up itself, and a check that a growing family changes no earlier verdict | §8 |
+| `fig_checkpoint_sensitivity` | RQ7 at both checkpoints — the +0.038 headline is −0.0008 at the other one | §7.8 |
+| `fig_pointing_rules` | all three tie-breaking rules with a block-level chance baseline; the ET-small refinement | §6.3 |
+| `fig_otsu_selected_fraction` | what each rule actually selects — the mechanism behind the sign disagreement, measured | §7.11 |
+| `fig_window_curve_per_region` | the pooled 12³–16³ optimum broken into three regions that want three windows | §7.11 |
+| `fig_cost_benefit` | forward passes per volume against the Dice each window buys | §7.11 |
 
 Every figure regenerates from the result CSVs and training logs; none was drawn by hand. Colours use the Okabe-Ito colourblind-safe palette, verified computationally (all pairs clear ΔE ≥ 8 under simulated protanopia and deuteranopia).
 
@@ -713,8 +765,8 @@ One row per (patient, region) with Dice, IoU, size bin and true volume. Naming: 
 4. **Validate the pipeline** — `train_pprime_supervised.py` then `evaluate_pprime_supervised.py`. *Do this before trusting anything downstream.*
 5. **Baseline** — `train_baseline.py` (add `--seed 1` / `--seed 2` for replications)
 6. **Experiments** — each `train_rqN.py` / `evaluate_rqN.py` with its matching `slurm/*.sbatch`. Smoke-test on `dev` first.
-7. **Statistics** — `analyze_full_family.py` reproduces all 171 tests with BH correction
-8. **Figures** — the twelve figure scripts; `make_figures_supplementary.py` last, since it reads the RQ11/RQ12/RQ13 CSVs and the training logs
+7. **Statistics** — `analyze_full_family.py` reproduces all 171 tests with BH correction; `analyze_appendix.py` the eight blocks in Part 6.3's last table
+8. **Figures** — the thirteen figure scripts; `make_figures_supplementary.py` and `make_figures_appendix.py` last, since they read the RQ11/RQ12/RQ13 CSVs, the training logs and the preprocessed masks
 9. **Report** — `pandoc report_draft.md -o report_draft.pdf --pdf-engine=xelatex -V mainfont="DejaVu Serif" --toc`
 
 **Repository:** [github.com/rajhansini/Diagnosing-Small-Lesion-Grounding-Failure-in-Text-Conditioned-3D-Medical-Localization](https://github.com/rajhansini/Diagnosing-Small-Lesion-Grounding-Failure-in-Text-Conditioned-3D-Medical-Localization)
@@ -723,7 +775,7 @@ One row per (patient, region) with Dice, IoU, size bin and true volume. Naming: 
 
 # Closing summary
 
-**What was built.** A complete text-conditioned 3D localization pipeline: preprocessing, contrastive alignment, sliding-window localization, five binarization rules, two localization metrics, and a nine-tool diagnostic layer — 58 files, 8,986 lines, 111 cluster jobs, 29 figures.
+**What was built.** A complete text-conditioned 3D localization pipeline: preprocessing, contrastive alignment, sliding-window localization, five binarization rules, three localization metrics, and a twelve-tool diagnostic layer — 60 files, 10,163 lines, 111 cluster jobs, 38 figures.
 
 **What was found.**
 
@@ -732,6 +784,6 @@ One row per (patient, region) with Dice, IoU, size bin and true volume. Naming: 
 3. Exactly **one intervention works** — a smaller query window (12³–16³), no retraining — worth +0.060 Dice under a deployable threshold, and it lifts enhancing-tumor pointing in every size bin, taking the previously-at-chance small-ET bin from 0/21 to 4/21.
 4. Replacing Otsu with a fixed top-1% threshold is a **second free improvement**, worth 2–4× Dice.
 
-**What was learned, and what is most transferable.** Five conclusions in this work were overturned *after* being written up — every one by a control, none by a p-value. The general lesson: **a shared confound is not a cancelled confound.** When every arm of a comparison passes through the same miscalibrated instrument, the comparison still looks clean while being ranked backwards. And a single control is not a verdict — our first correction to the window result was itself confounded, and only a second control settled it.
+**What was learned, and what is most transferable.** Six conclusions in this work were overturned *after* being written up — every one by a control, none by a p-value. The general lesson: **a shared confound is not a cancelled confound.** When every arm of a comparison passes through the same miscalibrated instrument, the comparison still looks clean while being ranked backwards. And a single control is not a verdict — our first correction to the window result was itself confounded, and only a second control settled it.
 
 That is the honest shape of this project: a modest positive finding, a strong negative one about language, and a methodology that repeatedly caught its own author being wrong.

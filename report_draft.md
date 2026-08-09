@@ -11,13 +11,13 @@ Recent 3D medical vision-language models can detect *that* a pathological findin
 
 **The failure is real and specific.** Localization collapses monotonically with lesion size (5–15× Dice degradation, large to small), survives a chance-level control, and replicates in 9 of 9 region×bin comparisons across three independent splits. To rule out the deflationary reading that small lesions are simply hard here, we train a conventional supervised U-Net on the identical data, split and metric: it reaches published BraTS Dice (ET 0.758, TC 0.812, WT 0.851) and degrades by only 1.2–1.3× large-to-small. Small lesions are learnable on this data; text-conditioned grounding is what fails on them.
 
-**Roughly half the measured collapse was a metric artifact.** Decomposing the pipeline shows the unsupervised Otsu threshold over-predicts lesion volume by 6–223× and is *anti*-correlated with true size (ρ = −0.26 to −0.48), mechanically inflating the effect. Under an oracle-volume threshold the large/small ratio falls from 15.0/9.2/4.9 to 14.4/5.6/2.4. A threshold-free pointing game localizes what remains: chance-corrected accuracy is roughly uniform at 46–122× chance everywhere, with one stark exception — for small enhancing tumor the peak response lands inside the lesion in **0 of 21 patients**, exactly chance.
+**Roughly half the measured collapse was a metric artifact.** Decomposing the pipeline shows the unsupervised Otsu threshold over-predicts lesion volume by 6–223× and is *anti*-correlated with true size (ρ = −0.26 to −0.48), mechanically inflating the effect. Under an oracle-volume threshold the large/small ratio falls from 15.0/9.2/4.9 to 14.4/5.6/2.4. A threshold-free pointing game localizes what remains: chance-corrected accuracy is roughly uniform at 46–122× chance everywhere, with one stark exception — for small enhancing tumor the peak response lands inside the lesion in **0 of 21 patients**, exactly chance. A third tie-breaking rule sharpens that into the paper's central mechanism rather than softening it: the model's winning 26 mm block *contains* the lesion in 9 of 21 cases, 36× the block-level chance, so it is not searching in the wrong place — it has no resolution inside the block it selects.
 
 **The language pathway contributes almost nothing.** Replacing PubMedBERT with general-domain BERT, with a randomly initialized never-trained BERT, or with random vectors carrying no language at all produces effects that change sign across training runs — indistinguishable from the 0.0044 Dice noise floor of simply retraining the baseline. Only discarding PubMedBERT's anisotropic embedding *geometry* reliably hurts (−0.0087, consistent across three seeds). Probing the trained model directly, negating the query, destroying its word order, swapping its anatomical referent, or replacing it with contentless filler all leave the projected embedding above 0.94 cosine to the original and the heatmap at ρ = 0.56–1.00; for whole tumor, generic filler and a wrong-region term both *outperform* the true clinical description. The query functions as an opaque class identifier that happens to be spelled in English.
 
 **One intervention works, and it is the simplest.** Size-conditioned prompting (whose reported gain turns out to be an artifact of the binarizer, vanishing under every calibrated rule), multi-scale ensembling, scale-matched retraining (which a noise probe shows learned resize-interpolation shortcuts, ANOVA p≈4×10⁻²⁵¹) and a uniformity regularizer all fail to beat the plain baseline. What does work is evaluating the frozen model at a smaller query window, around 12³–16³ instead of 32³, with no retraining: +0.060 Dice under a deployable top-1% threshold and +0.067 under an oracle — 2–3× more than the Otsu protocol that discovered it could show. It also lifts threshold-free pointing accuracy for enhancing tumor in all three size bins, taking the previously-at-chance small-ET bin from 0 of 21 patients to 4 of 21.
 
-**The methodological result is the transferable one.** Five conclusions here were overturned or materially qualified *after* being written up, by controls rather than by significance tests — including twice within one section, in opposite directions, once a confound between window size and tiling convention was removed. The general lesson: a shared confound is not a cancelled confound. Every comparison in this report used one binarizer, which we argued made them internally fair; Otsu and every calibrated rule turn out to disagree in *sign* about the same pair of heatmaps, so arms that interact differently with a shared instrument can be ranked backwards by it, invisibly to any amount of paired testing or FDR correction.
+**The methodological result is the transferable one.** Six conclusions here were overturned or materially qualified *after* being written up, by controls rather than by significance tests — including twice within one section, in opposite directions, once a confound between window size and tiling convention was removed. The general lesson: a shared confound is not a cancelled confound. Every comparison in this report used one binarizer, which we argued made them internally fair; Otsu and every calibrated rule turn out to disagree in *sign* about the same pair of heatmaps, so arms that interact differently with a shared instrument can be ranked backwards by it, invisibly to any amount of paired testing or FDR correction.
 
 ## 1. Introduction
 
@@ -25,9 +25,9 @@ Radiology reports routinely describe findings in natural language — location, 
 
 This is not a cosmetic failure. Small, subtle findings are disproportionately the clinically important case: large, obvious masses rarely need AI assistance to be found, while small or early-stage lesions are exactly where a grounding tool would be most valuable — and exactly where current systems are documented to fail worst. If this failure mode is real but unquantified, it's difficult to know how bad it is, whether it's fixable, or what a fix would even target.
 
-This project does four things. First, it builds a controlled experimental setup to **rigorously quantify** this failure as a function of lesion size, rather than relying on qualitative or anecdotal reports — measuring localization quality (Dice/IoU) stratified into small/medium/large tercile bins, on a held-out validation set, across three independently-defined tumor subregions in the BraTS2020 dataset. Second, it **validates that setup against a previously-studied problem** (P′): a conventional supervised segmenter trained on the identical data, split and metric, which both confirms the pipeline is sound and establishes that the collapse is specific to text conditioning rather than intrinsic to small lesions on this data. Third, it runs a systematic **series of ablation studies** — text-side, inference-side, and training-side interventions — to see whether the failure is a *language* problem, an *architecture* problem, or something that can be trained away. Fourth, throughout, it applies a consistent set of **diagnostic controls** (Section 8: chance baselines, shortcut-learning noise probes, cross-split and cross-run replication, family-wise multiple-comparisons correction, pipeline decomposition, metric triangulation, metric well-definedness, and confound isolation) so that every claim of "improvement" or "failure" is verified rather than eyeballed.
+This project does four things. First, it builds a controlled experimental setup to **rigorously quantify** this failure as a function of lesion size, rather than relying on qualitative or anecdotal reports — measuring localization quality (Dice/IoU) stratified into small/medium/large tercile bins, on a held-out validation set, across three independently-defined tumor subregions in the BraTS2020 dataset. Second, it **validates that setup against a previously-studied problem** (P′): a conventional supervised segmenter trained on the identical data, split and metric, which both confirms the pipeline is sound and establishes that the collapse is specific to text conditioning rather than intrinsic to small lesions on this data. Third, it runs a systematic **series of ablation studies** — text-side, inference-side, and training-side interventions — to see whether the failure is a *language* problem, an *architecture* problem, or something that can be trained away. Fourth, throughout, it applies a consistent set of twelve **diagnostic controls** (Section 8: chance baselines, shortcut-learning noise probes, cross-split and cross-run replication, family-wise multiple-comparisons correction, pipeline decomposition, metric triangulation, replication at the right unit, metric well-definedness, confound isolation, effect size against significance, rule-sensitivity bounding, and perturbing a selection axis nothing else varied) so that every claim of "improvement" or "failure" is verified rather than eyeballed. Sections 9 and 10 report what went wrong along the way and what the corrections taught; Section 12 sets out what to do next, ordered by expected value per unit of effort.
 
-Two things about how this turned out are worth stating up front. The failure is **architectural rather than linguistic** — strikingly so: the text query turns out to function as an opaque class identifier, and replacing the language model with random vectors changes nothing measurable. And exactly one intervention works, the simplest one available: querying the frozen model at a smaller window. That conclusion was reached only after the diagnostic controls in Section 8 overturned five earlier conclusions this report had already written down, including reversing the window-size verdict twice. Those reversals are documented rather than hidden, because how they were caught is the most transferable part of the work.
+Two things about how this turned out are worth stating up front. The failure is **architectural rather than linguistic** — strikingly so: the text query turns out to function as an opaque class identifier, and replacing the language model with random vectors changes nothing measurable. And exactly one intervention works, the simplest one available: querying the frozen model at a smaller window. That conclusion was reached only after the diagnostic controls in Section 8 overturned six earlier conclusions this report had already written down, including reversing the window-size verdict twice. Those reversals are documented rather than hidden, because how they were caught is the most transferable part of the work.
 
 ## 2. Problem Definition
 
@@ -119,10 +119,35 @@ All code was written for this project; see [`src/README.md`](src/README.md) for 
 | **Training** | `train_baseline.py`, `train_rq2/4/5/6/7.py`, `train_pprime_supervised.py` | One script per experimental arm, each taking `--seed` to control the train/val split for cross-seed replication. |
 | **Evaluation** | `evaluate_rq1.py` and 14 siblings | `evaluate_rq1.py` defines `otsu_threshold()`, `dice_iou()` and `size_bin()`, which every other evaluation — including the supervised P′ — imports, so all arms are scored by literally the same code. |
 | **Diagnostics** | `test_rq4_shortcut_hypothesis.py`, `test_rq6_hub_bias.py`, `compute_chance_baseline.py`, `sanity_check_localize.py` | Noise probes, chance-level control, and the pre-flight check that the heatmap scores higher inside the true region than outside. |
-| **Analysis** | `analyze_full_family.py`, `analyze_seed_replication.py`, `analyze_rq7_multiseed.py`, and 7 others | Recompute every statistic directly from the saved per-patient CSVs, so no number in this report is transcribed by hand. |
-| **Figures** | 12 figure scripts | All 29 figures regenerate from the result CSVs and training logs; none is drawn by hand. |
+| **Analysis** | `analyze_full_family.py`, `analyze_seed_replication.py`, `analyze_rq7_multiseed.py`, `analyze_appendix.py`, and 7 others | Recompute every statistic directly from the saved per-patient CSVs, so no number in this report is transcribed by hand. |
+| **Figures** | 13 figure scripts | All 38 figures regenerate from the result CSVs and training logs; none is drawn by hand. |
 
 Two recurring design decisions are worth naming. First, **evaluation scripts import their metric definitions rather than redefining them**, which is what makes cross-experiment comparison meaningful. Second, **several scripts carry a built-in correctness gate**: `evaluate_rq8_compositionality.py` asserts its "original" condition reproduces RQ1's CSV exactly, and `evaluate_grounding_sweep.py` at window 32 must reproduce RQ11's — both caught real bugs during development.
+
+### 5.3 Experimental configuration
+
+Every arm in this report shares one training recipe; only the marked rows differ between arms. Stating it explicitly matters here because several later conclusions turn on details that would otherwise read as incidental — the checkpoint policy in particular (Sections 7.8 and 11).
+
+| Setting | Value | Notes |
+|---|---|---|
+| Volume encoder | MONAI 3D ResNet-10, 4 input channels | Classification head repurposed as the projection head |
+| Text branch | one `nn.Linear(768, 256)` over frozen embeddings | Frozen encoder; only this layer trains on the text side |
+| Shared space | 256-d, L2-normalized on both branches | Dot product in this space *is* cosine similarity |
+| Objective | softmax cross-entropy over cosine logits | 4-way (ET/TC/WT/NONE); *10-way for RQ2/RQ4/RQ6* |
+| Temperature $\tau$ | 0.07 | CLIP's value, not tuned here |
+| Optimizer | Adam, lr $10^{-4}$, no schedule, no weight decay | |
+| Epochs / batch | 30 / 32 | ~24 min on one RTX 2080 Ti |
+| Training patches | 1,163 train / 286 val (patient, region) pairs | Placement re-randomized every epoch, so the model sees many crops per pair |
+| Patch size | 32³ voxels | *RQ4/RQ6 crop at 16³/32³/64³ and resize to 32³* |
+| Uniformity weight | — | *RQ6 only: 0.5* |
+| Inference | sliding window 32³, stride 16 | Section 7.11 sweeps this |
+| Binarization | Otsu, per volume, unsupervised | Section 6.3 sweeps this |
+
+**P′ supervised reference** (Section 6.1): MONAI 3D U-Net, channels (16, 32, 64, 128, 256), strides (2, 2, 2, 2), 3 sigmoid output channels, Dice loss, Adam at $10^{-3}$ with cosine annealing, 96³ random crops, batch size 2, 200 epochs under a 3.4-hour wall-clock cap (37 min actual).
+
+**Checkpoint policy, and one asymmetry it creates.** `train_baseline.py` writes a single last-epoch checkpoint; the retrained ablations write both a last and a best-validation checkpoint and are evaluated at `_best`. The baseline the ablations are compared against therefore has no best checkpoint to be selected on. The direction of that bias is worth stating: it favours the ablations, so RQ4's and RQ6's negative verdicts (Sections 7.5–7.6) are conservative, while RQ2's positive one is not — an observation independent of, and consistent with, Section 7.12's finding that RQ2's gain is a binarizer artifact. RQ7 is the exception and was deliberately run both ways, because there the baseline's last-epoch status is the whole comparison; Section 7.8 reports what that choice was worth.
+
+**Compute.** 111 SLURM jobs on one cluster partition, 22.4 GPU-hours in total, almost all on a single RTX 2080 Ti. Representative runtimes: baseline training 24 min, P′ training 37 min, RQ1 evaluation 2 min 47 s, the 16³ window sweep 19 min, the 12³ sweep 52 min. Every experiment was smoke-tested on a 10-minute `dev` partition before being submitted for real (11 `smoke_test_*.sbatch` scripts); eight RQ7 seed jobs failed on first submission from a bad argument and were caught in 8 seconds each because of it.
 
 ## 6. Core Result: Size-Stratified Localization Failure
 
@@ -166,13 +191,25 @@ A fully supervised model on this exact data barely degrades at all: 0.636 → 0.
 
 The degradation is monotonic and severe across **all three independently-defined tumor subregions**, holding on a held-out validation set never seen during training. This directly and quantitatively confirms the small-lesion grounding failure documented qualitatively in recent 3D medical VLM literature (Section 3). Absolute Dice is modest throughout (a lightweight ResNet-10 with an unsupervised Otsu threshold, not a competitive segmentation model) — the finding is about the *relative* size-dependent collapse. Section 6.1 bounds how much of that modesty is the task setup rather than the pipeline: the same data, split and metric under dense supervision reach 0.76–0.85 Dice.
 
+**Is the collapse specific to Dice's algebra?** Every evaluation script has also written an IoU column since the first run, and the report quoted it nowhere. IoU is a monotone transform of Dice per patient (IoU = Dice / (2 − Dice)), so it cannot reverse any single comparison — but it is harsher on partial overlap, so the *aggregate* ratios need not agree. They do, and IoU is slightly less flattering: large/small ratios of **16.4× / 10.0× / 5.6×** for ET/TC/WT against Dice's 15.0× / 9.2× / 4.9×, with the Spearman correlation against log volume identical to three decimal places in all three regions (0.970 / 0.978 / 0.968). Recomputing every ablation's pooled verdict on IoU instead of Dice keeps the sign in **7 of 7** arms. The reported figures are therefore the conservative ones, and nothing in the report rests on which of the two overlap metrics was chosen.
+
+![Left: the RQ1 collapse under both metrics. Right: every ablation's pooled change against the baseline, Dice on the x-axis against IoU on the y-axis — all seven arms sit on the diagonal and none crosses an axis, so no verdict in this report depends on the choice between them.](figures/fig_iou_dice.png){width=100%}
+
 \newpage
 
 ![Dice vs. true lesion volume, model (blue) vs. a chance/random-heatmap control (gray), one panel per subregion. Both climb with volume, but the model sits well above chance throughout.](figures/fig1_dice_vs_volume.png){width=95%}
 
 **Statistical validation — is this just a Dice artifact?** Dice is known to penalize small structures more harshly than large ones for *any* predictor, purely as a geometric property of the metric (a single misclassified voxel costs a tiny lesion far more of its Dice score than it costs a large one). To check whether the RQ1 collapse is a real model failure rather than this artifact, we computed a **chance baseline**: pure random-noise heatmaps run through the identical Otsu-threshold-and-Dice pipeline, on the same 73 validation patients.
 
-The chance baseline collapses with size too — as expected, since this reflects the metric, not the model. Spearman correlation between Dice and log-volume is extremely strong for *both* the model (ρ=0.97–0.98) and chance (ρ=0.999–1.000, i.e. almost perfectly deterministic), confirming Dice's inherent size-dependence. The question that actually isolates the model's behavior is the **lift over chance** (model Dice ÷ chance Dice) at each size bin:
+The chance baseline collapses with size too — as expected, since this reflects the metric, not the model. Its absolute values are worth stating, because they are what "no information at all" scores under this protocol:
+
+| Region | Small | Medium | Large |
+|---|---|---|---|
+| ET | 0.0009 | 0.0035 | 0.0112 |
+| TC | 0.0023 | 0.0070 | 0.0186 |
+| WT | 0.0086 | 0.0205 | 0.0355 |
+
+Spearman correlation between Dice and log-volume is extremely strong for *both* the model (ρ=0.97–0.98) and chance (ρ=0.999–1.000, i.e. almost perfectly deterministic), confirming Dice's inherent size-dependence. The question that actually isolates the model's behavior is the **lift over chance** (model Dice ÷ chance Dice) at each size bin:
 
 | Region | Small lift | Medium lift | Large lift |
 |---|---|---|---|
@@ -181,6 +218,8 @@ The chance baseline collapses with size too — as expected, since this reflects
 | WT | 6.6× | 6.7× | 7.9× |
 
 ![The control, in both of its halves. Left: model Dice against the random-heatmap baseline on a log axis — both fall with lesion size, which is Dice's geometric bias showing up in a predictor that has no information at all. Right: the ratio between them, which is what isolates the model. It is flat within ~25% across bins in every region, so the model is not losing signal disproportionately on small lesions; what collapses is absolute usability.](figures/fig_lift_over_chance.png){width=100%}
+
+![What every mean in this report is an average of. Grey is the published 32³ protocol, colour the smaller window Section 7.11 recommends, both scored under the deployable top-1% rule; thick bars are bin medians. The distributions are bounded at zero and pile up against it in the small bins — which is why every test here is a paired Wilcoxon signed-rank rather than a *t*-test, and why n=20–32 per bin means a significant result still has to be checked for magnitude.](figures/fig_per_patient_spread.png){width=100%}
 
 This is the more careful finding: the model's *relative* advantage over chance is roughly **constant** across size bins (within each region, small/medium/large lift are all within ~25% of each other) — the model isn't disproportionately losing signal on small lesions relative to a null baseline. What collapses is **absolute** localization quality: even with a consistent ~7-13× advantage over random guessing, small-lesion Dice (0.010–0.057) is nowhere near clinically usable, while large-lesion Dice (0.149–0.281), though still modest, is at least in a range serious methods report. So the honest claim is not "the model is uniquely broken on small lesions relative to its own baseline" — it's "even a consistent relative advantage over chance is not enough to produce usable absolute localization when the target is small," which is arguably the more clinically relevant framing anyway: a radiologist doesn't care whether a bad prediction is bad in an absolute or relative sense.
 
@@ -255,6 +294,28 @@ This revises a claim made in Section 6.2. We attributed modest absolute Dice to 
 
 ![Every binarization rule, every region, every size bin. The ordering small < medium < large holds under all five rules — the collapse is not manufactured by Otsu. What *is* Otsu's is the height of its own bar: the gap between the orange Otsu bar and the green oracle bar is the cost of the thresholding step, and it is significant in eight of nine bins. ET-small is the exception, and the exception is diagnostic: there no cut point rescues the heatmap because its voxel *ranking* is itself poor.](figures/fig_threshold_ladder.png){width=100%}
 
+The full ladder underlying that figure, since the two rules quoted so far are only its ends:
+
+| Region | Rule | Small | Medium | Large | L/S | ρ(Dice, volume) |
+|---|---|---|---|---|---|---|
+| ET | Otsu | 0.0100 | 0.0374 | 0.1488 | 15.0× | 0.970 |
+| ET | top 10% | 0.0092 | 0.0339 | 0.1063 | 11.6× | 0.999 |
+| ET | top 5% | 0.0165 | 0.0618 | 0.1956 | 11.9× | 0.983 |
+| ET | **top 1%** | **0.0436** | **0.1774** | **0.3672** | 8.4× | 0.896 |
+| ET | oracle volume | 0.0254 | 0.1495 | 0.3652 | 14.4× | 0.835 |
+| TC | Otsu | 0.0192 | 0.0590 | 0.1756 | 9.2× | 0.978 |
+| TC | top 10% | 0.0221 | 0.0667 | 0.1700 | 7.7× | 0.999 |
+| TC | top 5% | 0.0402 | 0.1207 | 0.2983 | 7.4× | 0.991 |
+| TC | top 1% | 0.0848 | 0.2872 | 0.5070 | 6.0× | 0.851 |
+| TC | oracle volume | 0.0922 | 0.3212 | 0.5175 | 5.6× | 0.770 |
+| WT | Otsu | 0.0568 | 0.1367 | 0.2809 | 4.9× | 0.968 |
+| WT | top 10% | 0.0807 | 0.1853 | 0.3048 | 3.8× | 0.998 |
+| WT | top 5% | 0.1405 | 0.3093 | 0.4898 | 3.5× | 0.981 |
+| WT | top 1% | 0.2577 | 0.5049 | 0.5248 | 2.0× | 0.695 |
+| WT | oracle volume | 0.2600 | 0.5162 | 0.6218 | 2.4× | 0.781 |
+
+Two patterns in this table are worth naming, because neither is visible from the Otsu and oracle rows alone. First, **the better the rule, the weaker the correlation with lesion volume** — ρ falls from 0.999 under the crudest fixed rule to 0.70–0.84 under the best two. Part of what looked like a size effect was the binarizer's own near-deterministic size dependence. Second, **the top-1% rule beats the oracle for enhancing tumor in all three bins** (0.0436/0.1774/0.3672 against 0.0254/0.1495/0.3652). That is not a contradiction: when a heatmap's voxel *ranking* is unreliable, spending exactly the right *number* of voxels is only rewarded if they are the right ones, and over-predicting is Dice-optimal instead. It is the same fact that Section 6.3's pointing game states more directly.
+
 Enhancing tumor's collapse is essentially entirely genuine; tumor core's and whole tumor's are roughly half thresholding artifact. The honest headline is therefore **2.4-14.4× degradation after controlling for binarization**, not 5-15×. The relationship remains monotonic, strongly positive, and present in every region under every one of the five binarization rules tested — it is the magnitude, not the existence, that was overstated.
 
 **A threshold-independent metric isolates where the real failure lives.** Dice conflates "did the model point at the lesion" with "did it draw the right boundary." We therefore also report the **pointing game** (Zhang et al., 2018): is the highest-response location inside the true mask? It is free of Dice's geometric size penalty. Its chance level still scales with target size, so we compare against a per-bin chance baseline (mean GT voxels ÷ total voxels) with an exact binomial test.
@@ -287,7 +348,25 @@ The correction matters most where the model was already doing well: whole-tumor 
 
 ![What the hit rate summarises. Each dot is one validation patient's distance from the peak response to the nearest lesion voxel; the thick bar is the bin median. The ET-small failure is visible as a distribution, not a near miss — at 32³ the peak sits a median 23.7 mm away with almost no mass at zero. The blue series previews Section 7.11: the 8³ window pulls enhancing tumor down toward zero in every bin and pushes tumor core sharply away, a regional split Dice never showed.](figures/fig_pointing_distance.png){width=100%}
 
-Chance-corrected lift is roughly **uniform at 46-122× across every region and size bin** — echoing Section 6.2's finding that lift over chance is approximately constant, but now with a metric that has no built-in size bias. The exception is stark and specific: **for small enhancing tumor the model is at exact chance, 0 hits in 21 patients, with its peak response a median 23.7 mm from the nearest lesion voxel.** That is not a boundary-delineation failure; the model is not pointing at the lesion at all. This is the sharpest statement of the failure this project can make, and it is confined to one region×bin rather than being the smooth monotonic collapse the Dice framing suggests. Section 7.12 returns to this bin and shows it is the one place the smaller-window intervention genuinely helps.
+Chance-corrected lift is roughly **uniform at 46-122× across every region and size bin** — echoing Section 6.2's finding that lift over chance is approximately constant, but now with a metric that has no built-in size bias. The exception is stark and specific: **for small enhancing tumor the model is at exact chance, 0 hits in 21 patients, with its peak response a median 23.7 mm from the nearest lesion voxel.** This is the sharpest statement of the failure this project can make, and it is confined to one region×bin rather than being the smooth monotonic collapse the Dice framing suggests. Section 7.11 returns to this bin and shows it is the one place the smaller-window intervention genuinely helps.
+
+**How much of that depends on how the tie is broken?** The correction above replaced one rule for locating an ambiguous peak with another, which invites the obvious follow-up: is the ET-small result a property of the model or of the rule? A third rule was recorded alongside the other two and is reported here for the first time. It asks not where the peak *is* but whether the winning plateau — the whole 16³ block sharing the maximum — intersects the lesion at all. It is not a pointing rule, so it needs its own chance baseline: the fraction of the 512 stride-aligned blocks that the ground-truth mask intersects, computed per patient from the masks.
+
+| Region | Bin | n | argmax corner | plateau centroid | peak block touches | block chance | block lift |
+|---|---|---|---|---|---|---|---|
+| ET | small | 21 | 0 | **0** | **9** | 1.19% | 36.0× |
+| ET | medium | 23 | 3 | 3 | 18 | 2.40% | 32.6× |
+| ET | large | 23 | 6 | 8 | 23 | 4.08% | 24.5× |
+| TC | small | 27 | 2 | 3 | 15 | 1.39% | 40.0× |
+| TC | medium | 23 | 9 | 8 | 20 | 2.74% | 31.7× |
+| TC | large | 23 | 13 | 16 | 23 | 4.66% | 21.4× |
+| WT | small | 32 | 6 | 17 | 25 | 3.08% | 25.4× |
+| WT | medium | 21 | 15 | 18 | 21 | 5.79% | 17.3× |
+| WT | large | 20 | 16 | 17 | 20 | 8.12% | 12.3× |
+
+**This sharpens the ET-small finding rather than overturning it, and the sharpened version is a better fit to the paper's thesis.** Both point rules agree: the model never points at a small enhancing tumor, 0 of 21 under either. But its winning block *contains* part of the lesion in **9 of 21** cases, 36× the block-level chance of 1.19% — squarely inside the 12–40× band every other cell occupies. So the model is not searching in the wrong place. It has localized small enhancing tumor to within a 26 mm block and cannot resolve anything finer, which is exactly the fixed-receptive-field bottleneck this report argues for elsewhere — here measured rather than inferred. An earlier draft of this section wrote "the model is not pointing at the lesion at all"; that sentence has been withdrawn, because the block rule shows the stronger reading is not supported. The claim that survives is narrower and more precise: *within the block it selects, the model has no information about where the lesion sits.*
+
+![Left: all three tie-breaking rules at the published protocol, with the black ticks marking the block rule's own chance level. Right: the spread between the most and least generous rule, by tied-plateau size — the ambiguity shrinks with the stride that causes it, from 0.394 at stride 16 to 0.061 at stride 4, so it is a property of the protocol rather than a residual doubt about the model.](figures/fig_pointing_rules.png){width=100%}
 
 **One deployable consequence.** The fixed top-1% threshold (`pct99`) needs no ground truth and beats Otsu everywhere, by 3-4× for ET (0.0436/0.1774/0.3672 vs 0.0100/0.0374/0.1488). For ET it even beats the oracle-volume threshold in all three bins — when a heatmap's ranking is unreliable, a mask larger than the true lesion is Dice-optimal, because concentrating into exactly the right *number* of voxels is only rewarded if they are the right *ones*. Replacing Otsu with a fixed percentile is a free protocol improvement, and unlike the oracle it is usable at inference time.
 
@@ -473,6 +552,19 @@ Noise floor (baseline retrained, 3 seeds) = 0.0044 pooled Dice.
 
 ![RQ7 text-encoder ablations. Each dot is one independent training run; the vertical tick is the mean of the three. The grey band is the retraining noise floor, measured by retraining the *identical* PubMedBERT baseline under three seeds. Only the orthonormal-vector condition (orange) keeps its sign across all three runs; the other three change direction from run to run despite within-run p-values as small as 6×10⁻³⁵.](figures/fig_rq7_encoder.png){width=98%}
 
+**A second, independent probe of the same fragility.** Seed replication varies the training run. There is a cheaper axis that varies nothing about training at all: which epoch's weights get scored. Because the RQ1 baseline is a last-epoch checkpoint (Section 5.3), RQ7's primary comparison was pre-registered as last-versus-last to hold checkpoint selection fixed — but every RQ7 run also saved its best-validation checkpoint, and both were evaluated. That comparison was never reported, and it is worth reporting because it demotes the same result seed replication demotes, by an entirely different route:
+
+| Text condition | last-epoch Δ | best-val Δ | sign change? |
+|---|---|---|---|
+| BERT-base | +0.0151 | +0.0018 | no |
+| **Random-init BERT** | **+0.0379** | **−0.0008** | **yes** |
+| 4 random orthonormal vectors | −0.0140 | −0.0224 | no |
+| Random vectors, PubMedBERT geometry | −0.0072 | −0.0072 | no |
+
+The +0.0379 that carried p≈6×10⁻³⁵ is −0.0008 at the other checkpoint of *the same trained run*. Nothing about the text encoder changed between those two columns. Two independent perturbations — reseed the run, or move the checkpoint — each collapse the effect, which is stronger evidence than either alone. Note also which conditions are stable across both: the orthonormal one keeps its sign and grows, consistent with it being the only real effect in the table.
+
+![The same four trained runs scored at their final epoch and at their best-validation epoch. The grey band is the retraining noise floor. One of four conditions changes sign, and it is the one that produced RQ7's headline.](figures/fig_checkpoint_sensitivity.png){width=94%}
+
 Three findings follow, and the first two are uncomfortable.
 
 **Biomedical pretraining is worth nothing measurable here.** Swapping PubMedBERT for general-domain BERT-base produces an effect that changes sign across training runs. Whatever domain knowledge PubMedBERT encodes about enhancing tumor and peritumoral edema, this pipeline does not use it.
@@ -536,7 +628,7 @@ All four hold their *direction* in all three runs, so the headline verdicts — 
 
 ### 7.11 RQ12: Is the smaller window's win real, and is Otsu measuring what we think?
 
-Sections 7.3-7.4 crowned the isolated smaller window as this project's best intervention on the strength of Dice under Otsu. Two things about that verdict were never checked, and Section 10 flagged both as the most valuable outstanding follow-up. First, Dice conflates finding a lesion with outlining it, so a Dice win is consistent with the window merely tightening masks around lesions the model already found. Second, every Section 7 comparison shares the Otsu binarizer, which we argued made them internally fair — but Section 6.3 then showed Otsu is *anti*-correlated with lesion size, so it is not a neutral common factor at all.
+Sections 7.3-7.4 crowned the isolated smaller window as this project's best intervention on the strength of Dice under Otsu. Two things about that verdict were never checked, and Section 11 flagged both as the most valuable outstanding follow-up. First, Dice conflates finding a lesion with outlining it, so a Dice win is consistent with the window merely tightening masks around lesions the model already found. Second, every Section 7 comparison shares the Otsu binarizer, which we argued made them internally fair — but Section 6.3 then showed Otsu is *anti*-correlated with lesion size, so it is not a neutral common factor at all.
 
 We recomputed the heatmaps across the whole window sweep and scored each under all five binarization rules plus the corrected pointing game. Running the pipeline at 32³/stride-16 reproduces `rq11_threshold_confound_scores.csv` on 212 of 213 patients bit-for-bit (the one exception differs by 5×10⁻⁴ Dice, from a tie in Otsu's 256-bin histogram) — an end-to-end correctness gate on the generalization.
 
@@ -554,6 +646,22 @@ We recomputed the heatmaps across the whole window sweep and scored each under a
 
 RQ3b/RQ3c's central claim survives, and was *understated*: the benefit of a smaller query window is 2-3× larger under the calibrated rules (+0.060 pct99, +0.067 oracle) than under the Otsu protocol that discovered it (+0.027). The calibrated curves also reveal an interior optimum at **12³-16³** that Otsu's monotone curve hid, with a mild genuine decline by 8³.
 
+**That pooled optimum is an average of three regions that disagree.** Breaking the same four overlap-matched conditions out per region shows the 12³-16³ bracket is not a window any single region actually wants:
+
+| Rule | ET optimum | TC optimum | WT optimum |
+|---|---|---|---|
+| Otsu | 8³ (monotone) | 8³ (monotone) | 8³ (monotone) |
+| **top 1% (deployable)** | **12³** (0.2413) | **16³** (0.3356) | **8³** (0.5310, still rising) |
+| oracle volume | 16³ (0.2718) | 16³ (0.3932) | 8³ (0.6028, still rising) |
+
+Under Otsu all three curves look monotone — another instance of the binarizer flattening structure that the calibrated rules resolve. Under the calibrated rules tumor core peaks at 16³ and then falls away sharply (0.3356 → 0.2927 by 8³), whole tumor is still climbing at the smallest window tested, and enhancing tumor is nearly flat from 16³ to 8³. **This is the same regional split the pointing game reported independently in the paragraphs below** — the smaller window helps ET and WT and hurts TC — arrived at from Dice rather than from peak location, which is the kind of agreement between two dissimilar metrics that Section 8's triangulation tool is for. The practical consequence is that "use a smaller window" is one recommendation only if you pool; per region it is three, and a deployed system would tune it per target.
+
+![The same four overlap-matched conditions, per region, under three binarization rules. Circles mark each region's optimum. Otsu makes all three look monotone; the calibrated rules separate them.](figures/fig_window_curve_per_region.png){width=100%}
+
+**And it is not free.** Section 7.3 already corrected "free" to "no retraining required"; here is the number. Windows per volume grow as $((128-w)/s + 1)^3$, so the recommended 12³/stride-6 setting does 8,000 forward passes per volume against the baseline's 343 — 23×, and 52 minutes of wall-clock against 2 minutes 47 seconds for the whole validation set. That is expensive relative to the baseline and cheap relative to the alternative: retraining one arm from scratch takes 24 minutes and needs labels, an optimizer and a second set of weights, none of which this needs.
+
+![Forward passes per volume against the Dice each condition buys, under the deployable top-1% rule. Grey points are the two non-overlapping conditions, which are not comparable to the rest. The recommended setting is the knee, not the cheapest or the best.](figures/fig_cost_benefit.png){width=88%}
+
 ![The 32³ baseline against an 8³ window at matched 50% overlap, on the same patients under the same Dice implementation. The advantage is real under every binarization rule and largest under the two that best reflect heatmap quality — the reverse of what the first, tiling-confounded version of this comparison showed.](figures/fig_rq12_threshold_reversal.png){width=98%}
 
 **The 8³/6³ "continued improvement" in Section 7.4 was a tiling artifact, and it exposes Otsu directly.** Holding window size fixed at 8³ and changing only the stride:
@@ -567,6 +675,10 @@ RQ3b/RQ3c's central claim survives, and was *understated*: the benefit of a smal
 | oracle volume | 0.3754 | 0.2652 | **−0.1101** | 3.5×10⁻²⁴ |
 
 **Otsu and every calibrated rule disagree in *sign*, on the same heatmaps, by a wide margin.** Dropping overlap makes the heatmap blocky and low-entropy — a coarser intensity histogram, which gives Otsu's between-class-variance criterion a cleaner two-class split and therefore a *better* score, while every rule that selects a fixed fraction of voxels is penalised for the lost spatial resolution. This is the sharpest statement this project can make about its own instrument: **Otsu does not merely add noise, it rewards a specific degradation of the heatmap.** Section 7.4's reported "plateau at 6³ for ET and TC, while WT keeps improving" compares two non-overlapping points against three overlapping ones and is not a finding about window size at all.
+
+That explanation was argued from histogram shape rather than measured, so it is worth measuring. The predicted-mask column does it directly: holding the window at 8³ and changing only the stride from 4 to 8, Otsu's selected fraction of the imaged volume falls from **9.12% to 7.20%** and its spread across patients tightens from 2.43 to 1.76 percentage points. Otsu moves its cut point *toward* the truth (0.58%) — for a reason that has nothing to do with the heatmap being better — and collects the Dice reward for doing so, while every fixed-fraction rule keeps selecting the same number of voxels and simply pays for the resolution just lost. Across the whole sweep Otsu's fraction drifts from 11.75% down to 7.20% while the four other rules are constant by construction: it is the only row in the table that can respond to a protocol change at all.
+
+![Left: what fraction of the volume each rule marks as lesion, across the sweep. Only Otsu's line can move. Right: the same window at two strides — the distribution shifts left and narrows when overlap is dropped, which is Otsu changing its answer rather than the heatmap improving.](figures/fig_otsu_selected_fraction.png){width=100%}
 
 ![The window sweep re-scored under every binarization rule. Columns are window/stride; the first four hold the 50%-overlap convention fixed and the last two are the non-overlapping points the original sweep switched to. Only the Otsu curve keeps rising across that switch.](figures/fig_rq12_window_curve.png){width=98%}
 
@@ -604,7 +716,23 @@ We re-scored all three under every binarization rule. The re-scored Otsu column 
 
 **RQ2's improvement is the third Otsu artifact this project has found, and the most consequential.** Section 7.1 reported size-conditioned prompting as helping medium and large lesions substantially, at p=8×10⁻¹⁷. Under every calibrated rule that improvement disappears: +0.006 at top-1% (p=0.11, not significant), +0.000 under the oracle (p=0.67), and slightly negative at top-5% and top-10%. Per-region, whole tumor flips sign outright (+0.015 under Otsu, −0.033 under top-1%). The honest revision: **size-conditioned prompting does not improve localization; it produces a heatmap that Otsu happens to binarize more favourably.** Section 7.1's negative half — that it *worsens* small enhancing tumor and widens the ET size gap — is unaffected, and Section 7.10 already showed that half replicates across seeds.
 
-**RQ4 and RQ6's negative verdicts are robust.** Both are worse than the baseline under all five rules, with the pooled magnitude actually larger under the calibrated ones. Whatever else is true of scale-matched retraining and the uniformity repair, they are not being unfairly penalised by the binarizer. (Per-region, tumor core flips to positive for both under top-1%, a reminder that pooled verdicts hide regional structure — but neither arm approaches the baseline overall.)
+**RQ4 and RQ6's negative verdicts are robust.** Both are worse than the baseline under all five rules, with the pooled magnitude actually larger under the calibrated ones. Whatever else is true of scale-matched retraining and the uniformity repair, they are not being unfairly penalised by the binarizer.
+
+Per region, though, the pooled columns hide real structure, and the sign disagreements are not confined to RQ2:
+
+| Arm | Region | Otsu Δ | top-1% Δ | Same sign? |
+|---|---|---|---|---|
+| RQ2 | ET | +0.0140 | +0.0227 | yes |
+| RQ2 | TC | +0.0383 | +0.0282 | yes |
+| **RQ2** | **WT** | **+0.0150** | **−0.0330** | **no** |
+| RQ4 | ET | −0.0373 | −0.0885 | yes |
+| **RQ4** | **TC** | **−0.0342** | **+0.0292** | **no** |
+| RQ4 | WT | −0.0412 | −0.0402 | yes |
+| RQ6 | ET | −0.0342 | −0.0292 | yes |
+| **RQ6** | **TC** | **−0.0226** | **+0.0192** | **no** |
+| RQ6 | WT | −0.0134 | −0.1673 | yes |
+
+Three of nine region-level verdicts change sign between the published binarizer and the deployable one, and they are not the same three the pooled table would predict: RQ4 and RQ6 both go from losing to *winning* on tumor core once the threshold is calibrated. Neither arm comes close to the baseline overall, so this changes no headline — but it does mean the honest statement is "worse overall, and specifically not worse on tumor core", not "worse everywhere". The additional generalization is that pooling and thresholding are two separate ways to lose regional structure, and this project's protocol was doing both at once.
 
 **Why this matters beyond these three arms.** Three of the four interventions this project evaluated on Dice have now had their Otsu verdict change under a calibrated threshold: RQ3b/RQ3c (understated by 2-3×), the 8³/6³ tiling points (an artifact entirely), and RQ2 (an artifact entirely). The one that did not change is the pair of clearly-negative arms. That pattern is itself informative — a miscalibrated binarizer distorts the ranking of *close* comparisons while leaving large effects intact, which is exactly the regime where careful ablation work lives.
 
@@ -620,11 +748,11 @@ Every other attempt failed to beat the plain baseline: text-side size conditioni
 
 A second free improvement stands independently: **replacing Otsu with a fixed top-1% threshold**, worth 2-4× Dice (Section 6.3), needing no retraining and no ground truth.
 
-**But the most transferable result is methodological, and it is a cautionary one.** Five conclusions in this report were overturned or materially qualified *after* being written up as findings — by the controls in Section 8 rather than by any significance test. Two of those reversals happened inside Section 7.11 alone, in opposite directions: the smaller-window win first appeared to be an Otsu artifact, then turned out to be real and *understated* once a confound between window size and tiling convention was removed. The general lesson is sharper than "check your metric": **a shared confound is not a cancelled confound.** Every arm in Section 7 used the same binarizer, which we argued made the comparisons internally fair. Section 7.11 shows Otsu and every calibrated rule disagree in *sign* about the same pair of heatmaps — so arms that interact differently with a shared instrument can be ranked backwards by it, and no amount of paired testing or FDR correction across those arms will reveal it.
+**But the most transferable result is methodological, and it is a cautionary one.** Six conclusions in this report were overturned or materially qualified *after* being written up as findings — by the controls in Section 8 rather than by any significance test. Two of those reversals happened inside Section 7.11 alone, in opposite directions: the smaller-window win first appeared to be an Otsu artifact, then turned out to be real and *understated* once a confound between window size and tiling convention was removed. The general lesson is sharper than "check your metric": **a shared confound is not a cancelled confound.** Every arm in Section 7 used the same binarizer, which we argued made the comparisons internally fair. Section 7.11 shows Otsu and every calibrated rule disagree in *sign* about the same pair of heatmaps — so arms that interact differently with a shared instrument can be ranked backwards by it, and no amount of paired testing or FDR correction across those arms will reveal it.
 
 ## 8. Diagnostic Methodology
 
-The ablation studies above rely on nine recurring diagnostic tools, used consistently across every experiment rather than invented ad hoc per section, so that "significant" and "improved" mean what they claim to mean:
+The ablation studies above rely on twelve recurring diagnostic tools, used consistently across every experiment rather than invented ad hoc per section, so that "significant" and "improved" mean what they claim to mean:
 
 1. **Chance-level control** (Section 6.2): random-heatmap baseline run through the identical Otsu+Dice pipeline, to separate genuine model failure from Dice's known geometric bias toward large structures.
 2. **Noise-probe diagnosis** (Sections 7.5-7.6): feeding pure synthetic noise through a trained model's real input pipeline to check whether an apparent capability (e.g. RQ4's improved classification accuracy) is grounded in real content or a shortcut/artifact.
@@ -635,10 +763,21 @@ The ablation studies above rely on nine recurring diagnostic tools, used consist
 7. **Replication at the right unit** (Sections 7.8, 7.10): a within-run paired test over 213 patients answers "is this difference real *for this trained model*", not "is this difference real". Since every arm here is one training run, the unit of replication is the run, and the honest evidence is sign consistency across independently seeded runs measured against a retraining noise floor. Applied to RQ7 this demoted a p≈6×10⁻³⁵ result to noise; applied to RQ5 it upgraded a reported null to a consistent positive.
 8. **Metric well-definedness** (Section 7.11): checking that a metric measures what its name implies before interpreting it. The pointing game presumes a well-defined peak; a strided sliding window makes the heatmap piecewise-constant over blocks, so `argmax` returns a block corner and the "peak" is ambiguous by up to the stride. Measuring the size of the tied-maximum plateau exposed this and changed several Section 6.3 numbers substantially.
 9. **Confound isolation** (Section 7.11): when two settings change together, no comparison between them means anything. Section 7.4's sweep shrank the window *and* switched from 50%-overlap to non-overlapping tiling at the 8³ point, which was noted at the time as a compute detail rather than treated as a confound. Adding the missing 8³/stride-4 control was what separated the two, and it reversed the reading twice.
+10. **Effect size against significance** (Sections 5.1, 6.2): a p-value answers "is there a difference", not "is it worth anything". With n=20-32 per bin and small-bin Dice around 0.01-0.06, the two questions come apart badly: **47 of this project's 144 BH-significant tests move Dice by less than 0.01, and 35 of those 47 are in the small bins.** Every test is therefore reported with a matched-pairs rank-biserial effect size and a percentile bootstrap interval, and results that are significant but negligible are flagged rather than counted as findings.
+11. **Rule-sensitivity bounding** (Section 6.3): where a metric requires an arbitrary choice, computing it under every reasonable choice bounds how much of the result is the choice. Applied to the pointing game's tie-breaking, this both confirmed the ET-small failure under both point rules and, via a third rule with its own chance baseline, replaced an overreaching interpretation of it with a narrower one that fits the paper's mechanism better.
+12. **Perturbing a selection axis nothing else varied** (Section 7.8): the seed is not the only thing a single result can depend on. Re-scoring RQ7's four conditions at their best-validation rather than last-epoch checkpoint — same runs, same data, same weights lineage — collapses the same headline effect that seed replication collapsed. Two cheap perturbations along unrelated axes agreeing is stronger evidence than either alone, and this one costs no GPU time at all if both checkpoints were saved.
 
-**On the value of these tools.** Five claims in this report were overturned or materially qualified by tools 5-9 *after* they had already been written up as findings: the magnitude of the size collapse (tool 5), the RQ7 encoder effects and the RQ5 null (tool 7), the pointing-game hit rates (tool 8), the size and mechanism of the window-size benefit (tools 5 and 9 together), and RQ2's reported improvement, which tool 5 showed to be an artifact of the binarizer rather than a property of the model (Section 7.12). Each was plausible, statistically significant, and internally consistent.
+**On the value of these tools.** Six claims in this report were overturned or materially qualified by tools 5-12 *after* they had already been written up as findings: the magnitude of the size collapse (tool 5); the RQ7 encoder effects and the RQ5 null (tool 7, corroborated by tool 12); the pointing-game hit rates (tool 8); the size and mechanism of the window-size benefit (tools 5 and 9 together); RQ2's reported improvement, which tool 5 showed to be an artifact of the binarizer rather than a property of the model (Section 7.12); and the interpretation of the ET-small pointing failure, which tool 11 narrowed from "the model is not pointing at the lesion at all" to "the model has no resolution inside the block it selects" (Section 6.3). Each was plausible, statistically significant, and internally consistent.
 
-The last of those is the most instructive because it moved twice. Re-scoring under better thresholds first suggested the window benefit was an Otsu artifact that reversed; adding the overlap control then showed the benefit is real, larger than Otsu could measure, and that what actually reversed was a tiling change masquerading as a window-size effect. A single control is not a verdict — the first correction was itself confounded. The general lesson: with a multi-stage pipeline and a shared metric, significance testing alone does not protect you, because every arm inherits the same confound and the comparison still looks clean.
+The fourth of those is the most instructive because it moved twice. Re-scoring under better thresholds first suggested the window benefit was an Otsu artifact that reversed; adding the overlap control then showed the benefit is real, larger than Otsu could measure, and that what actually reversed was a tiling change masquerading as a window-size effect. A single control is not a verdict — the first correction was itself confounded. The general lesson: with a multi-stage pipeline and a shared metric, significance testing alone does not protect you, because every arm inherits the same confound and the comparison still looks clean.
+
+**What the correction and the effect sizes actually look like.** Both are load-bearing for every claim in Sections 6 and 7 and neither had been shown.
+
+![Top: all 171 tests, adjusted significance against absolute effect. The shaded band is the region where a result is real and useless — 47 of the 144 BH-significant tests land in it. Bottom: each arm's nine region×bin deltas with the span of their bootstrap intervals; the tick is the mean.](figures/fig_effect_sizes.png){width=88%}
+
+![Left: the Benjamini-Hochberg step-up. Exactly one test in the project is significant raw and not after correction — RQ3b, ET large, p=0.048 → q=0.057 — and Section 7.3 flags it rather than rounding it up. Right: a check on the pooled family itself. The family grew as experiments accumulated, so a test's q-value depends on experiments run after it; correcting RQ3b against the 27-test family that existed when it was run changes no verdict, and the larger family is if anything marginally more permissive, because BH's threshold depends on the whole p-value distribution rather than only on the count.](figures/fig_bh_correction.png){width=100%}
+
+The right-hand panel settles a worry the pooled-family choice raises and this report had left open. Correcting everything against one growing family has the awkward property that adding RQ7 changes RQ3b's q-values retroactively. Measured rather than assumed, the effect is negligible here and runs the *opposite* way to the intuition: RQ3b's ET-small q goes from 0.0494 against 27 tests to 0.0463 against 171, because the experiments added later contributed many strongly-significant p-values and BH's threshold is a function of the whole distribution. No verdict in this report changes under either family, and the per-research-question correction (also computed, in `full_family_statistics.csv`) agrees with the pooled one on all 171 tests.
 
 Figure below visualizes the outcome of every one of those corrected significance tests at once — every ablation, every region, every size bin, in one panel:
 
@@ -650,7 +789,9 @@ Two caveats on reading it. This figure shows Otsu-thresholded comparisons: Secti
 
 ## 9. Challenges
 
-Several non-trivial obstacles came up during implementation, beyond the RQ2 negative result discussed above:
+Several non-trivial obstacles came up during implementation, beyond the RQ2 negative result discussed above. They fall into three groups, and the interesting ones are in the third.
+
+**Environment and infrastructure**
 
 - **Kaggle API version mismatch.** A newly-generated Kaggle API access token turned out to require kaggle CLI ≥1.8.0, which in turn requires Python ≥3.11 — incompatible with the project's Python 3.10 environment. Resolved by using Kaggle's legacy API key format instead, which the older, compatible CLI version supports.
 
@@ -658,15 +799,41 @@ Several non-trivial obstacles came up during implementation, beyond the RQ2 nega
 
 - **A second, unrelated version conflict.** The `transformers` library refuses to load PubMedBERT's checkpoint format (an older `pytorch_model.bin`; no `safetensors` version exists in that model's repository) unless PyTorch ≥2.6, a defensive measure against a real PyTorch CVE. Bumping PyTorch would have risked reopening the CUDA compatibility problem above, so an older `transformers` release was pinned instead — a purely software-loading restriction, not a functional requirement.
 
+- **No GPU on the login node.** The interactive machine has no GPU at all; a CPU-only correctness test confirmed the training code was *correct* (loss decreasing, no crashes) but took over 11 minutes of CPU time for a handful of tiny batches — impractical for real training. This required learning the cluster's SLURM job submission system (partitions, GPU resource requests, account/QOS) to actually run anything at meaningful scale, rather than treating it as optional infrastructure.
+
+**Data**
+
 - **A known BraTS2020 data quirk.** One patient's segmentation file uses a non-standard filename left over from the original hospital de-identification process (Section 4), which crashed the preprocessing script partway through a 369-patient run. This also exposed a design flaw in the first version of the preprocessing script — it only wrote its summary CSV once, at the very end, so the crash would have silently discarded already-computed results for the preceding patients. Fixed by writing results incrementally per patient and adding a filename fallback for the one irregular case.
 
-- **No GPU on the login node.** The interactive machine has no GPU at all; a CPU-only correctness test confirmed the training code was *correct* (loss decreasing, no crashes) but took over 11 minutes of CPU time for a handful of tiny batches — impractical for real training. This required learning the cluster's SLURM job submission system (partitions, GPU resource requests, account/QOS) to actually run anything at meaningful scale, rather than treating it as optional infrastructure.
+- **Regions that overlap in absolute size.** The three evaluation regions are nested, so a *large* enhancing tumor is physically smaller than a *small* whole tumor (Section 4). Any global size threshold would therefore have measured which region a case belongs to rather than how large its lesion is. Every size bin in this project is a per-region tercile for that reason, and it is why no result is ever pooled across regions without also being reported per region.
+
+**Design and methodology**
 
 - **An architectural dead-end avoided before it was built.** Grad-CAM was the originally planned localization technique. On closer inspection, the trained model globally average-pools each patch down to a single embedding vector, meaning there is no spatial feature map left near the output for Grad-CAM to meaningfully back-propagate onto — it would have produced a near-single-voxel "heatmap." This was caught during design, before implementation, and a sliding-window similarity map was used instead, which matches how the model actually represents space.
 
-- **BERT anisotropy.** Raw PubMedBERT sentence embeddings for the four class descriptions turned out to have ~0.99 pairwise cosine similarity to each other — meaning the frozen text encoder alone carries almost no discriminative signal, and the trainable projection head has to do essentially all the separating work during contrastive training. This was verified directly with a pairwise similarity check before committing to the training pipeline design.
+- **BERT anisotropy.** Raw PubMedBERT sentence embeddings for the four class descriptions turned out to have ~0.99 pairwise cosine similarity to each other — meaning the frozen text encoder alone carries almost no discriminative signal, and the trainable projection head has to do essentially all the separating work during contrastive training. This was verified directly with a pairwise similarity check before committing to the training pipeline design. It became the interpretive key to RQ7 nine experiments later.
 
-## 10. Limitations
+- **The statistics grew a category of problem the project did not start with.** The first comparison in this project was a single paired test. By the end there were 171, at which point roughly nine "significant" results would be expected from noise alone, several arms had been trained exactly once each, and the unit of replication question (Section 8, tool 7) had gone from pedantic to decisive. None of that machinery was planned; each piece was added because a specific result stopped being defensible without it.
+
+- **The instrument became the subject.** Otsu was chosen at the start for a defensible reason — it never sees ground truth, so it cannot leak test-time information into Dice — and that reason turned out to be orthogonal to whether it measures well. Four of this report's six reversals trace back to it. The general shape of the problem is that a choice can be right on the axis you evaluated it on and badly wrong on an axis you did not think to evaluate.
+
+## 10. Lessons Learned
+
+The five below are what I would tell someone starting a project of this shape. They are ordered by how much they cost to learn.
+
+**1. Build the diagnostic layer before the model, not after it.** This is the single largest thing I would change. The baseline trained on essentially the first serious attempt; every subsequent week went into checking results, and the checks are where the project's actual content came from. The chance baseline, the P′ supervised reference, the second binarizer and the second metric were all added *after* results existed that needed defending — which means every one of them arrived as a potential refutation of work already written up, rather than as infrastructure. Built first, the same components cost the same and threaten nothing.
+
+**2. A shared confound is not a cancelled confound.** The argument that seemed obviously right at the time — every arm uses the same binarizer, so the comparison between arms is internally fair — is wrong whenever arms interact with that instrument differently, and Section 7.11 shows Otsu and every calibrated rule disagreeing in *sign* about the same pair of heatmaps. No amount of paired testing or FDR correction across those arms can reveal it, because the confound is upstream of every test in the family. The operational version: a shared component is fair only if you have checked that the arms differ from each other in ways that component is blind to.
+
+**3. A single control is not a verdict.** The first correction to the window-size result was itself confounded, and pointed the wrong way with high confidence. Controls are evidence, not adjudication, and a control that changes a conclusion deserves the same scrutiny as the conclusion it changed. In practice this meant asking, of each correction, "what else changed between these two conditions?" — which is how the tiling confound surfaced.
+
+**4. Know what your unit of replication is before you compute a p-value.** A within-run test over 213 patients answers "is this difference real for this trained model", which is not the question an ablation asks. Getting this wrong produced p ≈ 6×10⁻³⁵ for an effect that two independent perturbations — reseeding, and moving the checkpoint — both erase. The cheap fix is a noise floor: retrain the *identical* configuration a few times and measure how much it moves on its own. Here that floor is 0.0044 pooled Dice, and it disqualifies three of RQ7's four headline effects immediately.
+
+**5. Significance and magnitude are different questions, and small targets separate them.** Forty-seven of this project's 144 BH-significant results move Dice by less than 0.01, and 35 of those are in the small bins — exactly the bins the project is about. A paired test over patients whose scores are all near zero and all move the same tiny amount is extremely easy to make significant. Reporting an effect size and an interval next to every p-value is what keeps that from reading as a wall of findings.
+
+Two smaller ones worth recording. **Encode the varying setting in the filename**: after the tiling confound, the window-sweep outputs include stride as well as window size, because a window-only name would have silently overwritten one condition with another — the same class of error as the confound itself, two different things sharing one label. And **make scripts verify themselves against earlier results**: three evaluation scripts assert that a designated condition reproduces an existing CSV (Section 5.2), and two of those gates caught real bugs that reading the code would not have.
+
+## 11. Limitations
 
 - **Single anatomy, single dataset.** All results are on BraTS2020 brain tumors. Whether the same size-dependent collapse and the same failure of size-conditioned prompting hold for other organs/lesion types (e.g. lung nodules, liver lesions) is untested here — Future Work below proposes this as the next check.
 - **Modest per-bin sample sizes.** Size bins range from n=20 (WT large) to n=32 (WT small) patients. The overall monotonic pattern is consistent and large in effect size, but individual bin means, especially for ET (27/369 patients have no enhancing tumor at all, further shrinking that region's usable sample), should be read with that sample size in mind.
@@ -676,18 +843,40 @@ Several non-trivial obstacles came up during implementation, beyond the RQ2 nega
 - **The Otsu threshold was not a neutral choice, and it changed a headline conclusion.** Otsu and the stride-16 window were chosen for transparency rather than to maximize Dice. Section 6.3 quantifies the price: 2.2-5.4× in Dice relative to an oracle-volume threshold, 6-223× volume over-prediction, and *anti*-correlation with true lesion size. An earlier draft argued the Section 7 comparisons were nonetheless internally fair because every arm shared the threshold. **That argument was wrong**, and Section 7.11 shows why: at a fixed window size, Otsu and every calibrated rule disagree in *sign* about which of two heatmaps is better (Otsu prefers the non-overlapping tiling by +0.017; the top-1% rule rejects it by −0.099). A shared confound is not a cancelled confound when arms interact with it differently. In this project that mattered in both directions — Otsu understated the smaller-window benefit while simultaneously making a tiling change look like a window-size improvement.
 - **The oracle-volume threshold is a diagnostic, not a method.** It uses the ground-truth voxel count and is therefore unavailable at inference. It is reported only to bound how much of the collapse is attributable to thresholding. The `pct99` fixed-percentile rule is the deployable version, and it recovers much of the same benefit.
 - **RQ6's fix is incomplete, and its diagnostic follow-up is not a deployable method.** The uniformity regularizer fixed 2 of 3 shortcut behaviors identified by the noise probe, not all 3 — a residual hub bias remains for the smallest-scale pipeline, and RQ6 still underperforms the plain RQ1 baseline in 7 of 9 bins. Separately, the single-scale oracle test used to isolate why ensembling helps RQ6 relies on the *true* size bin label, which is not available at real inference time — it is a mechanism-isolating diagnostic, not a proposed evaluation protocol.
-- **The window-size optimum is bracketed, not pinned down.** Under calibrated thresholds the curve peaks somewhere in the 12³-16³ range and declines mildly by 8³ (Section 7.11), but we evaluated only 32/16/12/8 at matched overlap, so the true optimum and the shape around it are uncharacterised. The plateau reported in Section 7.4 has been withdrawn: it rested on the 6³ and 8³ points, which changed the tiling convention as well as the window size.
+- **The window-size optimum is bracketed, not pinned down, and it is not one number.** Under calibrated thresholds the pooled curve peaks somewhere in the 12³-16³ range and declines mildly by 8³ (Section 7.11), but only 32/16/12/8 were evaluated at matched overlap, so the true optimum and the shape around it are uncharacterised. Worse for the pooled framing, the three regions do not agree: under the deployable rule the optima are 12³ (ET), 16³ (TC) and ≤8³ (WT, still rising at the smallest window tested). The plateau reported in Section 7.4 has been withdrawn: it rested on the 6³ and 8³ points, which changed the tiling convention as well as the window size.
+- **The retrained arms were selected on validation; the baseline was not.** Section 5.3 records the asymmetry: RQ2/RQ4/RQ5/RQ6 are evaluated at their best-validation checkpoint, the RQ1 baseline they are compared against is a last-epoch checkpoint with no selection applied. This biases *toward* the ablations, so it does not threaten the negative verdicts (RQ4, RQ6) and does weaken the one positive one (RQ2) — which Section 7.12 independently shows to be a binarizer artifact. It should nonetheless have been symmetric from the start, and RQ7 is the only arm where it was.
+- **The pointing game's tie-breaking rule is a choice, and it matters.** At the published stride the tied-maximum plateau is 4096 voxels, and the spread between the most and least generous rule for resolving it is 0.394 in pooled hit rate (Section 6.3). All three rules were computed and the headline claim holds under both point rules, but a protocol with a smaller stride would not need the choice made at all.
 
-## 11. Future Work
+## 12. Future Work
 
-- **A smarter cross-scale combination rule.** RQ3 and RQ6 together show the failure mode isn't multi-scale representation learning itself, nor is ensembling inherently harmful (RQ6 benefits from it) — but naive voxel-wise max lets the noisiest scale win when the underlying model wasn't trained to be calibrated at that scale (RQ3). Worth trying: a learned gating/attention mechanism across scales, or weighting by each scale's calibration/confidence rather than taking a raw max.
-- **Finish fixing the residual hub bias from RQ6.** The uniformity regularizer fixed 2 of 3 noise-probe shortcut behaviors and improved localization over RQ4 in all 9 bins, but the smallest-scale pipeline still shows residual bias toward the "large" class, and RQ6 still trails the plain RQ1 baseline overall. Worth trying: hard-negative mining that specifically contrasts the "large" and "small" classes during training, or a stronger uniformity weight, to see if the last residual bias can be closed and RQ6 can be pushed past the RQ1 baseline rather than just past RQ4.
-- **Close the gap between P′ and the text-conditioned model.** Section 6.1 shows a supervised U-Net reaches 0.64 Dice on the smallest enhancing tumors where the text-conditioned model reaches 0.01, on identical data. That 60× gap is the real target, and it is now bounded rather than speculative. The obvious intermediate is a text-conditioned model with a dense decoder rather than a globally-pooled encoder, which would remove the sliding-window bottleneck entirely and make Grad-CAM-style attribution viable again.
-- **Make the text pathway carry information at all.** RQ7 and RQ8 together show the query is a class index. Worth trying: contrastive negatives built from *within*-region text perturbations (true description vs. its negation as a hard negative pair), which would force the projection head to separate polarity rather than only region identity — the single cheapest change that could make the language side do work.
-- **Pin down the window-size optimum.** Section 7.11 brackets it at 12³-16³ under calibrated thresholds but evaluates only four overlap-matched points. A denser sweep (24³, 20³, 14³, 10³) at fixed 50% overlap would locate it properly, and is cheap — no retraining, just re-querying the frozen model.
-- **Extend to a second dataset** (e.g. LIDC-IDRI lung nodules) to test whether the failure pattern generalizes beyond brain tumors.
+Ordered by expected value per unit of effort, with the cheap and decisive ones first.
 
-## 12. Effort / Contribution
+**Cheap, and directly follows from a bracketed result**
+
+- **Pin down the window-size optimum, per region.** Section 7.11 brackets it at 12³-16³ pooled, and its per-region breakdown shows the three regions want three different windows. A denser overlap-matched sweep (24³, 20³, 14³, 10³) would locate each properly. No retraining — just re-querying the frozen model — so the whole study is a few GPU-hours, and it converts the project's one positive result from a bracket into a recommendation.
+- **Report the smaller-window result per region rather than pooled.** Nothing new needs to be run: the CSVs already contain it. Given that the intervention helps ET and WT and *hurts* TC on both Dice and pointing, a per-region operating point is strictly better than the pooled one and is free.
+
+**Cheap, and tests whether the central negative result is fixable at all**
+
+- **Make the text pathway carry information.** RQ7 and RQ8 together show the query is a class index. The single cheapest change that could falsify that: contrastive negatives built from *within*-region text perturbations, pairing each true description against its own negation as a hard negative. If the projection head can be made to separate polarity rather than only region identity, the language side starts doing work; if it cannot even under supervision aimed directly at that, the "opaque class identifier" reading becomes much more than one architecture's accident.
+- **Test whether the anisotropy result is the whole story.** RQ7 found that random vectors matching PubMedBERT's geometry are as good as PubMedBERT, while orthonormal vectors are reliably worse. That points at the geometry, not the meaning — but the cleanest test was not run: whiten PubMedBERT's embeddings to remove the anisotropy while keeping the semantics, and see whether performance drops to the orthonormal condition. If it does, the text encoder's entire contribution here is a covariance structure.
+
+**Moderate, and targets the largest measured gap in the report**
+
+- **Close the gap between P′ and the text-conditioned model.** Section 6.1 shows a supervised U-Net reaching 0.64 Dice on the smallest enhancing tumors where the text-conditioned model reaches 0.01, on identical data, split and metric. That 60× gap is the real target and is now bounded rather than speculative. The obvious intermediate is a text-conditioned model with a dense decoder instead of a globally-pooled encoder: it removes the sliding-window bottleneck entirely, makes Grad-CAM-style attribution viable again (Section 9), and would let the window-size question be asked of a model that was actually trained to answer it.
+- **A smarter cross-scale combination rule.** RQ3 and RQ6 together show the failure mode is not multi-scale representation learning itself, nor is ensembling inherently harmful — RQ6 benefits from it — but a naive voxel-wise max lets the noisiest scale win whenever the model was not trained to be calibrated at that scale. Worth trying: a learned gate across scales, or weighting each scale by its own confidence rather than taking a raw max.
+- **Finish fixing the residual hub bias from RQ6.** The uniformity regularizer fixed 2 of 3 noise-probe shortcut behaviors and beat RQ4 in all 9 bins, but the smallest-scale pipeline still prefers the "large" class and RQ6 still trails the plain baseline. Worth trying: hard-negative mining that specifically contrasts the "large" and "small" classes, or a stronger uniformity weight. Note the target should be beating the *baseline*, not beating RQ4 — RQ6's current claim is only the latter.
+
+**Expensive, and tests external validity**
+
+- **Extend to a second anatomy** (e.g. LIDC-IDRI lung nodules), where the size distribution is different and lesions are not nested regions. This is the check that would tell us whether "architecture, not language" is a fact about text-conditioned 3D localization or a fact about BraTS.
+- **Replace the 3-seed replication with a full k-fold sweep.** Three runs give the cross-seed tests almost no power (Section 11), which is why those sections lead with sign consistency against a noise floor rather than with p-values. Five-fold cross-validation across all arms would let the replication claims carry formal statistics rather than direction counts, at roughly 5× the current training cost — around 40 GPU-hours, which is affordable.
+
+**One methodological extension, which is what I would actually do next**
+
+- **Build the multi-instrument protocol in from the start and see what else it catches.** This project's transferable finding is that a shared binarizer is not a cancelled confound (Section 8). The natural follow-up is not another ablation but a re-run of the *same* experiment set under the discipline the corrections forced: every arm scored under five binarizers and two localization metrics from the beginning, every arm trained under three seeds and evaluated at two checkpoints, every conclusion reported with an effect size. Six conclusions here were caught late by that machinery. The obvious question is how many were never caught at all, and the only way to find out is to run the sweep the corrections retrospectively imply.
+
+## 13. Effort / Contribution
 
 This was an individual project; all design decisions, code, experiments, and writing below were done solo.
 
@@ -697,7 +886,44 @@ This was an individual project; all design decisions, code, experiments, and wri
 
 **Rough time split.** Approximately: 8% reading related work (the 3D medical VLM grounding-failure literature in Section 3, plus the methods papers cited in Section 5.1); 15% environment and data setup (BraTS2020 download, preprocessing, and — unexpectedly costly — resolving the CUDA/PyTorch/transformers dependency conflicts in Section 9); 20% writing the core pipeline (text encoder, volume encoder, contrastive training loop, sliding-window localization); 12% debugging (mostly the dependency issues, plus the incremental-CSV-write bug caught before it cost a full re-run); 25% designing and running the experiment sequence (RQ1 through RQ12, including the noise probes, the P′ supervised reference, and the seed replications); 8% on the statistics layer specifically (paired testing, FDR correction across an accumulating family, bootstrap intervals, and reworking the analysis once I realized the unit of replication was the training run and not the patient); and 12% writing and revising this report.
 
-**Where the time actually went, versus where I expected.** I expected the bulk of the effort to be in getting a model to work. It was not — the baseline trained on essentially the first serious attempt. The real cost was in *checking* results, and the checks were where the project's actual content came from. Five conclusions I had already written up as findings did not survive their own follow-up test (Section 8), and the last of them — discovering that this project's apparent best intervention won only under the threshold I had standardized on — arrived late enough that it required rewriting the report's conclusion rather than just adding a caveat. If I ran this project again I would build the diagnostic layer first and the model second.
+**Where the time actually went, versus where I expected.** I expected the bulk of the effort to be in getting a model to work. It was not — the baseline trained on essentially the first serious attempt. The real cost was in *checking* results, and the checks were where the project's actual content came from. Six conclusions I had already written up as findings did not survive their own follow-up test (Section 8), and the one that hurt most — discovering that this project's apparent best intervention won only under the threshold I had standardized on — arrived late enough that it required rewriting the report's conclusion rather than just adding a caveat. If I ran this project again I would build the diagnostic layer first and the model second (Section 10).
+
+**Scale of the finished work.** 60 Python files totalling 10,163 lines, 45 SLURM batch scripts driving 111 cluster jobs and 22.4 GPU-hours, 53 per-patient result tables, 171 paired significance tests, and 38 figures — every one of which regenerates from the result CSVs and training logs, so no number in this report was transcribed by hand. A companion document, `work_log.pdf`, walks through all fifteen experiments in the order they happened and names the script that produced every number.
+
+## Appendix A — Statistical detail
+
+Everything in this appendix is recomputed by `analyze_full_family.py` and `analyze_appendix.py` and stored machine-readably in `results/full_family_statistics.csv` (171 rows: comparison, region, bin, n, both means, delta, bootstrap interval, rank-biserial effect size, raw p, and q-values under both correction schemes).
+
+**A.1 The test family.** 171 paired Wilcoxon signed-rank tests, all against the RQ1 baseline, spanning 19 comparisons × 3 regions × 3 size bins. 145 are significant at raw α=0.05; 144 survive Benjamini-Hochberg correction under a single pooled family, and the same 144 survive under a per-research-question family — the two schemes agree on all 171 tests. Exactly one test is significant raw and not after correction: RQ3b, ET large, p=0.048 → q=0.057 (Section 7.3 reports it as not clearing the bar).
+
+**A.2 Effect sizes.** Among the 144 BH-significant tests, the distribution of |matched-pairs rank-biserial correlation| is: 0 negligible (<0.3), 5 moderate (0.3–0.5), 31 large (0.5–0.8), 108 very large (≥0.8). High effect sizes are expected here and are not by themselves impressive — the comparisons are paired within patient, and a consistent small shift produces a rank-biserial near 1 regardless of magnitude. That is precisely why magnitude is reported separately.
+
+**A.3 Significant but negligible.** 47 of the 144 BH-significant tests move Dice by less than 0.01 — 35 in the small bins, 12 in the medium bins, 0 in the large bins. The concentration is mechanical: baseline small-bin Dice is 0.010–0.057, so an absolute change too small to matter is still a large fraction of the score and highly consistent across patients. Sections 7.1 and 7.3 flag the individual cases; the full list is in `logs/full_family_analysis.txt`.
+
+**A.4 Bootstrap intervals.** All intervals are 10,000-sample seeded percentile bootstraps of the mean paired difference. Four of the 144 BH-significant tests have an interval straddling zero (RQ3b ET-small and ET-medium, RQ3c-12³ ET-medium, RQ12-oracle TC-small) — a reminder that Wilcoxon tests the median of the paired differences while the interval covers the mean, and the two can disagree on skewed data. All four are among the negligible-magnitude cases in A.3.
+
+**A.5 The largest effects in the project**, by |Δ Dice|, all q < 0.0001: RQ12 8³ oracle on WT-large (+0.354), WT-medium (+0.331); RQ12 8³ top-1% on WT-medium (+0.322), WT-small (+0.261); RQ12 8³ oracle on WT-small (+0.259) and ET-large (+0.253). Every one of the ten largest belongs to the window-size intervention, which is the quantitative form of Section 7.13's conclusion.
+
+## Appendix B — Complete inventory
+
+| Category | Count | Notes |
+|---|---|---|
+| Python files | 60 (10,163 lines) | See `src/README.md` for a file-by-file listing with line counts |
+| — data pipeline | 4 | `preprocess.py`, `text_encoder.py`, two text-variant builders |
+| — datasets and model | 6 | Four patch samplers, `model.py`, `localize.py` |
+| — training | 7 | One per arm, each taking `--seed` |
+| — evaluation | 15 | `evaluate_rq1.py` defines the metrics every other one imports |
+| — diagnostics | 4 | Noise probes, chance baseline, pre-flight localizer check |
+| — analysis | 11 | Recompute every reported statistic from the CSVs |
+| — figures | 13 | Draw all 38 figures from CSVs and logs |
+| SLURM scripts | 45 | Including 11 `smoke_test_*.sbatch` for the 10-minute `dev` partition |
+| Cluster jobs | 111 | 22.4 GPU-hours, almost all on one RTX 2080 Ti |
+| Result tables | 53 CSVs | One row per (patient, region); RQ11/12/13 add a `threshold_method` column |
+| Statistical tests | 171 | All paired, all BH-corrected across the accumulated family |
+| Figures | 38 | 29 in the main narrative, 9 added in the appendix pass |
+| Trained checkpoints | 52 | Baseline ×3 seeds (last only), four ablations ×3 seeds ×2 checkpoints, RQ7 ×4 conditions ×3 seeds ×2 checkpoints, P′ |
+
+**Built-in correctness gates.** Three evaluation scripts verify themselves against earlier results rather than being trusted: `evaluate_rq8_compositionality.py` requires its "original" condition to reproduce RQ1's CSV; `evaluate_grounding_sweep.py` at window 32/stride 16 must reproduce RQ11's (212 of 213 rows bit-identical, the exception differing by 5×10⁻⁴ Dice from a tie in Otsu's 256-bin histogram); `evaluate_ablation_thresholds.py` requires its re-scored Otsu column to reproduce each arm's published CSV (pooled difference below 3.5×10⁻⁵). Two of the three caught real bugs during development.
 
 ## References
 

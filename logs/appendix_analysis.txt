@@ -1,0 +1,245 @@
+============================================================================================================
+APPENDIX ANALYSIS: eight statistics blocks recomputed from the result tables
+Everything here was already in results/*.csv; none of it had been extracted before.
+============================================================================================================
+
+============================================================================================================
+[A] IoU ALONGSIDE DICE -- the second metric every CSV has always carried
+============================================================================================================
+    region  bin        n     Dice      IoU   IoU/Dice
+    ET      small      21   0.0100   0.0050     0.504
+    ET      medium     23   0.0374   0.0191     0.511
+    ET      large      23   0.1488   0.0824     0.553
+    TC      small      27   0.0192   0.0097     0.507
+    TC      medium     23   0.0590   0.0305     0.518
+    TC      large      23   0.1756   0.0975     0.555
+    WT      small      32   0.0568   0.0294     0.518
+    WT      medium     21   0.1367   0.0738     0.540
+    WT      large      20   0.2809   0.1643     0.585
+
+    large/small ratio and Spearman against log lesion volume, under each metric
+    region   L/S Dice   L/S IoU   rho(Dice,logV)   rho(IoU,logV)
+    ET         15.0x      16.4x          0.970           0.970
+    TC          9.2x      10.0x          0.978           0.978
+    WT          4.9x       5.6x          0.968           0.968
+
+    Every ablation's verdict, recomputed on IoU instead of Dice (pooled, paired Wilcoxon)
+    arm                             dDice     dIoU   same sign?
+    RQ2 (size-conditioned text)    +0.0227  +0.0143   yes
+    RQ3 (multi-scale ensemble)     -0.0203  -0.0119   yes
+    RQ3b (16^3 window)             +0.0155  +0.0098   yes
+    RQ3c (12^3 window)             +0.0197  +0.0125   yes
+    RQ4 (scale-matched)            -0.0376  -0.0220   yes
+    RQ5 (naturalistic text)        +0.0035  +0.0022   yes
+    RQ6 (uniformity fix)           -0.0231  -0.0138   yes
+    -> 7 of 7 arms keep their sign under the second metric.
+
+============================================================================================================
+[B] EFFECT SIZES AND BOOTSTRAP INTERVALS across the 171-test family
+============================================================================================================
+    tests: 171 | significant after pooled BH: 144
+
+    Distribution of |matched-pairs rank-biserial| among BH-significant tests
+      negligible/small  (<0.3)           0  ( 0.0%)
+      moderate          (0.3-0.5)        5  ( 3.5%)
+      large             (0.5-0.8)       31  (21.5%)
+      very large        (>=0.8)        108  (75.0%)
+
+    Significant but negligible in magnitude (|delta| < 0.01 Dice) -- real, not meaningful
+      47 of 144 BH-significant tests (33%)
+      by size bin: small 35, medium 12, large 0
+      -> the small bin is where an effect is most likely to be significant and useless,
+         because baseline Dice there is 0.010-0.057 and the paired variance is tiny.
+
+    Bootstrap intervals: do any BH-significant tests have a CI straddling zero?
+      4 of 144
+        RQ3b (16^3 window)                ET  small   delta=+0.0011  CI [-0.0001,+0.0022]  q=0.0463
+        RQ3b (16^3 window)                ET  medium  delta=+0.0019  CI [-0.0036,+0.0061]  q=0.0463
+        RQ3c (12^3 window)                ET  medium  delta=+0.0028  CI [-0.0030,+0.0072]  q=0.0113
+        RQ12 (8^3 window, oracle)         TC  small   delta=-0.0106  CI [-0.0200,+0.0026]  q=0.0003
+
+    The ten largest effects in the family, by |delta|
+    comparison                         reg bin        delta            95% CI   effect      q
+    RQ12 (8^3 window, oracle)         WT  large    +0.3544  [+0.3233,+0.3869]  +1.000  0.0000
+    RQ12 (8^3 window, oracle)         WT  medium   +0.3313  [+0.2848,+0.3775]  +1.000  0.0000
+    RQ12 (8^3 window, pct99)          WT  medium   +0.3219  [+0.2776,+0.3663]  +1.000  0.0000
+    RQ12 (8^3 window, pct99)          WT  small    +0.2611  [+0.2194,+0.3053]  +1.000  0.0000
+    RQ12 (8^3 window, oracle)         WT  small    +0.2587  [+0.2113,+0.3071]  +1.000  0.0000
+    RQ12 (8^3 window, oracle)         ET  large    +0.2534  [+0.2134,+0.2949]  +1.000  0.0000
+    RQ12 (8^3 window, pct99)          ET  large    +0.2322  [+0.2039,+0.2604]  +1.000  0.0000
+    RQ12 (8^3 window, pct99)          WT  large    +0.2063  [+0.1655,+0.2466]  +0.990  0.0000
+    RQ3c (6^3 window)                 WT  large    +0.1563  [+0.1317,+0.1807]  +1.000  0.0000
+    RQ3c (8^3 window)                 WT  large    +0.1453  [+0.1214,+0.1687]  +1.000  0.0000
+
+============================================================================================================
+[C] TWO WAYS TO DRAW THE TEST FAMILY -- and why the choice is not innocent
+============================================================================================================
+    significant at raw alpha=0.05 .................. 145/171
+    significant after BH, one pooled family ........ 144/171
+    significant after BH, per-research-question .... 144/171
+
+    tests where the two schemes disagree: 0
+
+    significant raw but NOT after pooled BH: 1
+      RQ3b (16^3 window)                ET  large   p=0.0484  q_pooled=0.0571
+
+    The uncomfortable property of the pooled family, made concrete:
+    the family grew as experiments were added, so a test's q-value depends on experiments
+    run after it. Below, the same RQ3b tests corrected against the family as it stood when
+    RQ3b was written (RQ2/RQ3/RQ3b only, 27 tests) and against the final 171.
+    comparison            reg bin           p_raw   q(27-test family)   q(171-test family)
+    RQ3b (16^3 window)    ET  small   0.0384            0.0494               0.0463
+    RQ3b (16^3 window)    ET  medium  0.0384            0.0494               0.0463
+    RQ3b (16^3 window)    ET  large   0.0484            0.0589               0.0571
+    RQ3b (16^3 window)    TC  small   0.0000            0.0001               0.0000
+    RQ3b (16^3 window)    TC  medium  0.0000            0.0001               0.0000
+    RQ3b (16^3 window)    TC  large   0.0031            0.0069               0.0044
+    RQ3b (16^3 window)    WT  small   0.0000            0.0000               0.0000
+    RQ3b (16^3 window)    WT  medium  0.0001            0.0002               0.0001
+    RQ3b (16^3 window)    WT  large   0.0000            0.0000               0.0000
+
+============================================================================================================
+[D] CHECKPOINT SELECTION -- an axis of variation nothing else in the project varied
+============================================================================================================
+    RQ1 baseline (last-epoch checkpoint, the only one train_baseline.py saves): 0.0972
+
+    RQ7, seed 0, the same trained runs evaluated at both checkpoints
+    text condition                     last     best   delta(last)  delta(best)  sign flip?
+    BERT-base (general domain)        0.1123  0.0991    +0.0151      +0.0018      no
+    random-init BERT (frozen)         0.1351  0.0964    +0.0379      -0.0008      YES
+    4 random orthonormal vectors      0.0833  0.0749    -0.0140      -0.0224      no
+    random vectors, PubMedBERT geom   0.0901  0.0901    -0.0072      -0.0072      no
+
+    1 of 4 conditions change sign on checkpoint choice alone.
+    In particular the +0.0379 'random-init BERT beats PubMedBERT' result that carried a
+    within-run p ~ 6e-35 is -0.0008 at the best-validation checkpoint of the same runs.
+    Seed replication and checkpoint choice are two independent probes of the same
+    fragility, and they agree.
+
+    Asymmetry worth disclosing: the retrained arms are evaluated at *_best, the baseline
+    they are compared against has no best checkpoint. Direction of the bias:
+      RQ2: evaluated at best-val checkpoint, pooled Dice 0.1200 vs baseline 0.0972 (+0.0227)
+      RQ4: evaluated at best-val checkpoint, pooled Dice 0.0597 vs baseline 0.0972 (-0.0376)
+      RQ5: evaluated at best-val checkpoint, pooled Dice 0.1008 vs baseline 0.0972 (+0.0035)
+      RQ6: evaluated at best-val checkpoint, pooled Dice 0.0741 vs baseline 0.0972 (-0.0231)
+    The selection favours the ablations, so RQ4's and RQ6's negative verdicts are
+    conservative and RQ2's positive one is not.
+
+============================================================================================================
+[E] POINTING-RULE SENSITIVITY -- and the block-level chance the third rule needs
+============================================================================================================
+    window 32^3, stride 16 (the published protocol; plateau = 16^3 = 4096 voxels)
+    region bin        n   argmax  centroid   any-tied   block chance   any-tied lift
+    ET     small      21     0/21     0/21       9/21        1.19%          36.0x  (p=1.2e-12)
+    ET     medium     23     3/23     3/23      18/23        2.40%          32.6x  (p=2.1e-25)
+    ET     large      23     6/23     8/23      23/23        4.08%          24.5x  (p=1.1e-32)
+    TC     small      27     2/27     3/27      15/27        1.39%          40.0x  (p=2.1e-21)
+    TC     medium     23     9/23     8/23      20/23        2.74%          31.7x  (p=9.5e-29)
+    TC     large      23    13/23    16/23      23/23        4.66%          21.4x  (p=2.4e-31)
+    WT     small      32     6/32    17/32      25/32        3.08%          25.4x  (p=4.3e-32)
+    WT     medium     21    15/21    18/21      21/21        5.79%          17.3x  (p=1.1e-26)
+    WT     large      20    16/20    17/20      20/20        8.12%          12.3x  (p=1.6e-22)
+
+    The headline bin, stated three ways. Small enhancing tumor, n=21:
+      peak voxel (argmax corner) inside the lesion ....... 0/21
+      peak voxel (plateau centroid) inside the lesion .... 0/21
+      peak *block* touches the lesion ................... 9/21  (36x the 1.19% block chance)
+    Both point rules agree the model never points at a small enhancing tumor. The block
+    rule shows it is not lost either: the winning 16^3 block contains part of the lesion
+    in 9 of 21 cases. The failure is resolution *inside* the block, not coarse search --
+    which is the architectural reading, measured rather than asserted.
+
+    All three rules across the sweep (pooled over regions and bins)
+    window/stride   median ties   argmax   centroid   any-tied
+    32^3 / 16           4096    0.329      0.423      0.817
+    16^3 / 8             512    0.587      0.587      0.789
+    12^3 / 6             216    0.592      0.540      0.690
+     8^3 / 4              64    0.516      0.484      0.545
+     8^3 / 8             512    0.207      0.324      0.408
+     6^3 / 6             216    0.216      0.282      0.366
+    The three rules converge as the plateau shrinks, which is what a rule-sensitivity
+    check should look like: the ambiguity is a property of the stride, not of the model.
+
+============================================================================================================
+[F] WHAT EACH RULE ACTUALLY SELECTS -- the mechanism behind the sign disagreement
+============================================================================================================
+    mean % of the imaged volume marked as lesion, per binarization rule and condition
+    rule            32^3/16 16^3/8  12^3/6  8^3/4  8^3/8  6^3/6  
+    Otsu            11.75    9.92    9.60    9.12    7.20    7.20 
+    top 10%         10.00   10.00   10.00   10.00   10.00   10.00 
+    top 5%           5.00    5.00    5.00    5.00    5.00    5.00 
+    top 1%           1.00    1.00    1.00    1.00    1.00    1.00 
+    oracle volume    0.58    0.58    0.58    0.58    0.58    0.58 
+
+    Only Otsu's row moves: every other rule selects a fixed fraction by construction.
+
+    Otsu's selected fraction, and its spread across patients
+    window/stride   mean %   std %   ratio to true lesion fraction
+    32^3 / 16         11.75    3.45           20.2x
+    16^3 / 8           9.92    2.77           17.1x
+    12^3 / 6           9.60    2.69           16.5x
+     8^3 / 4           9.12    2.43           15.7x
+     8^3 / 8           7.20    1.76           12.4x
+     6^3 / 6           7.20    1.60           12.4x
+    (true mean lesion fraction across the same patients: 0.58%)
+
+    Holding the window at 8^3 and changing only the stride, 4 -> 8:
+      Otsu's mask shrinks from 9.12% to 7.20% of the volume (-21%)
+      -- i.e. dropping overlap moves Otsu's cut point toward the truth for a reason that
+      has nothing to do with the heatmap being better. That is the whole disagreement:
+      Otsu rewards the blockier heatmap because a coarser histogram splits more cleanly,
+      while every fixed-fraction rule is scored on spatial resolution it has just lost.
+
+============================================================================================================
+[G] PER-REGION WINDOW OPTIMA -- the pooled bracket hides a three-way disagreement
+============================================================================================================
+
+    -- Otsu --
+    region   32^3/16 16^3/8  12^3/6  8^3/4     best (overlap-matched)
+    ET        0.0671  0.0719  0.0728  0.0746    8^3 / stride 4
+    TC        0.0810  0.0926  0.0968  0.1027    8^3 / stride 4
+    WT        0.1412  0.1702  0.1774  0.1904    8^3 / stride 4
+
+    -- top 1% --
+    region   32^3/16 16^3/8  12^3/6  8^3/4     best (overlap-matched)
+    ET        0.2003  0.2351  0.2413  0.2369    12^3 / stride 6
+    TC        0.2808  0.3356  0.3334  0.2927    16^3 / stride 8
+    WT        0.4015  0.5081  0.5225  0.5310    8^3 / stride 4
+
+    -- oracle volume --
+    region   32^3/16 16^3/8  12^3/6  8^3/4     best (overlap-matched)
+    ET        0.1849  0.2718  0.2706  0.2617    16^3 / stride 8
+    TC        0.2979  0.3932  0.3548  0.2523    16^3 / stride 8
+    WT        0.4327  0.5688  0.5871  0.6028    8^3 / stride 4
+
+    Under the deployable top-1% rule the three regions want three different windows:
+      top 1%         ET 12^3, TC 16^3, WT 8^3
+      oracle volume  ET 16^3, TC 16^3, WT 8^3
+    This is the same regional split the pointing game found (Section 7.11): the smaller
+    window helps enhancing tumor and whole tumor and hurts tumor core. Pooling the curve
+    averages a peak at 16^3 against one still rising at 8^3 and reports the midpoint.
+
+============================================================================================================
+[H] COST OF THE INTERVENTION -- 'no retraining' is not the same as 'free'
+============================================================================================================
+    window/stride   windows/volume   vs baseline   pooled Dice (top 1%)   Dice/1000 windows
+    32^3 / 16             343          1.0x        0.2968                0.8654
+    16^3 / 8             3375          9.8x        0.3631                0.1076
+    12^3 / 6             8000         23.3x        0.3693                0.0462
+     8^3 / 4            29791         86.9x        0.3568                0.0120
+     8^3 / 8             4096         11.9x        0.2574                0.0629  (non-overlapping)
+     6^3 / 6             9261         27.0x        0.2465                0.0266  (non-overlapping)
+
+    Measured wall-clock, from the SLURM logs (73 validation patients x 3 regions):
+      32^3 / 16 (RQ1 protocol)       2.8 min
+      16^3 / 8  (RQ3b)              19.3 min
+      12^3 / 6  (RQ3c)              52.0 min
+      8^3 / 4   (RQ12 control)      32.0 min
+      6^3 / 6   (RQ3c)              64.0 min
+
+    The recommendation the report makes -- 12^3-16^3 at 50% overlap -- costs 10-23x the
+    baseline's forward passes and buys +0.060 to +0.067 Dice. Against retraining an arm
+    (24 min on one RTX 2080 Ti) that is still cheap, and unlike retraining it needs no
+    labels, no optimiser and no second model.
+
+Done.

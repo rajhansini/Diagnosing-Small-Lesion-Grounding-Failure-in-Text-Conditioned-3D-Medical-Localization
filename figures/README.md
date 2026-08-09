@@ -1,8 +1,9 @@
 # `figures/` — generated report figures
 
-All 29 images here are regenerated from the per-patient CSVs in [`../results/`](../results/) and the
-training logs in [`../logs/`](../logs/) by one of twelve figure scripts in [`../src/`](../src/). None
-was drawn or edited by hand, so a figure and the corresponding table in the report cannot drift apart.
+All 38 images here are regenerated from the per-patient CSVs in [`../results/`](../results/), the
+training logs in [`../logs/`](../logs/) and (for two panels) the preprocessed masks, by one of
+thirteen figure scripts in [`../src/`](../src/). None was drawn or edited by hand, so a figure and
+the corresponding table in the report cannot drift apart.
 
 Colours follow the Okabe-Ito colourblind-safe palette throughout, verified computationally (all pairs
 clear ΔE ≥ 8 under simulated protanopia and deuteranopia).
@@ -57,6 +58,24 @@ All nine from `make_figures_supplementary.py`.
 | `fig_rq6_uniformity.png` | The uniformity repair verified in all three of its parts: separation, noise probe, Dice. | §7.6 |
 | `fig_rq8_embedding_vs_behavior.png` | Embedding displacement against behavioural change (ρ=+0.41, p=0.19), and the two cells where a degraded query wins. | §7.9 |
 | `fig_rq13_arms.png` | The three retrained arms re-scored under every binarization rule. | §7.12 |
+
+## Measurements the result tables held that nothing had looked at
+
+All nine from `make_figures_appendix.py`. These carry numbers that were computed and stored by the
+original evaluation runs but never extracted into the report; `analyze_appendix.py` prints the same
+statistics as text.
+
+| File | The claim it carries | Report section |
+|---|---|---|
+| `fig_iou_dice.png` | The IoU column every CSV has carried since the first run. The size collapse is slightly *larger* under IoU, and all seven ablation verdicts keep their sign. | §6.2 |
+| `fig_per_patient_spread.png` | The bounded, right-skewed, 20–32-patient distributions that every mean in the report averages over — the reason the tests are Wilcoxon, not *t*. | §6.2 |
+| `fig_effect_sizes.png` | All 171 tests by magnitude against adjusted significance, plus per-arm bootstrap spans. 47 of the 144 significant tests move Dice by under 0.01. | §8 |
+| `fig_bh_correction.png` | The Benjamini-Hochberg step-up itself, and a check that correcting against the smaller family that existed earlier changes no verdict. | §8 |
+| `fig_checkpoint_sensitivity.png` | RQ7's four conditions at both saved checkpoints. The +0.038 result that carried p≈6×10⁻³⁵ is −0.0008 at the other checkpoint of the same run. | §7.8 |
+| `fig_pointing_rules.png` | All three tie-breaking rules with a block-level chance baseline computed from the masks — the ET-small refinement. | §6.3 |
+| `fig_otsu_selected_fraction.png` | What each rule actually selects across the sweep. Only Otsu's fraction moves, which is the sign disagreement measured rather than argued. | §7.11 |
+| `fig_window_curve_per_region.png` | The pooled 12³–16³ optimum split into three regions that want three different windows. | §7.11 |
+| `fig_cost_benefit.png` | Forward passes per volume against the Dice each window buys, with the recommended operating point marked. | §7.11 |
 
 ## Cached intermediates
 

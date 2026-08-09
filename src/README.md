@@ -2,7 +2,7 @@
 
 **Attribution.** Every file below was written by me for this project. None contains code copied from another project, another assignment, or a third-party codebase. Third-party libraries (PyTorch, MONAI, Hugging Face Transformers, scikit-image, SciPy, matplotlib) and the pretrained PubMedBERT weights are used through their public APIs and package installs; nothing is vendored into this repository.
 
-**Totals: 58 files, 8,986 lines.** Line counts below are `wc -l` including docstrings and comments.
+**Totals: 60 files, 10,163 lines.** Line counts below are `wc -l` including docstrings and comments.
 
 Run order for a full reproduction is documented in the [root README](../README.md).
 
@@ -81,6 +81,7 @@ Run order for a full reproduction is documented in the [root README](../README.m
 | `analyze_rq11.py` | 147 | RQ11: threshold calibration, the cost of the Otsu step, and the pointing game vs. chance. |
 | `analyze_rq12.py` | 254 | RQ12: the tie artifact, the pointing comparison across window sizes, the overlap contrast, and whether the smaller window's Dice win survives a better binarizer. |
 | `analyze_rq13.py` | 141 | RQ13: whether the retrained arms' Section 7 verdicts survive a calibrated threshold, with a reproduction gate on the Otsu column. |
+| `analyze_appendix.py` | 465 | The eight statistics blocks the result tables held and no other script had extracted: IoU alongside Dice, effect sizes and bootstrap intervals across the family, the two BH correction schemes compared, checkpoint-selection sensitivity, the three pointing rules with a block-level chance baseline computed from the masks, what each binarizer actually selects across the sweep, per-region window optima, and the cost of the recommended intervention. Backs Appendix A of the report. |
 | `analyze_all_comparisons.py` | 109 | Earlier consolidated statistics script, superseded by `analyze_full_family.py` but retained because Sections 7.1–7.6 were first computed with it. |
 | `analyze_results.py` | 71 | Early-stage stats: Spearman correlation and lift over chance for RQ1. |
 
@@ -100,6 +101,7 @@ Run order for a full reproduction is documented in the [root README](../README.m
 | `make_figures_dataset_and_evidence.py` | 463 | The two dataset figures (split composition, per-region volume distributions with tercile cutoffs) plus four evidence figures for claims that were previously tables only: Otsu's inverse calibration, the pointing game against chance, per-seed ablation replication, and the RQ4 shortcut noise probe. |
 | `make_figures_rq7_rq8_rq12.py` | 265 | The four late-experiment figures: the RQ12 threshold reversal, RQ7 per-seed deltas against the retraining noise floor, RQ8 heatmap correlations under query manipulation, and the P′ supervised-vs-text-conditioned size comparison. |
 | `make_figures_supplementary.py` | 883 | Nine further evidence figures, one per claim the report had previously stated only as a number: PubMedBERT's anisotropy before and after the trained projection (with every RQ7 condition placed on that axis), the chance-baseline lift, the five-binarizer threshold ladder, peak-to-lesion distance distributions, RQ3's naive multi-scale losses, classification accuracy against localization quality across all five training arms, RQ6's three-part uniformity verification, RQ8's embedding-displacement scatter, and RQ13's re-scoring of the retrained arms. Reads the training logs as well as the result CSVs. |
+| `make_figures_appendix.py` | 712 | Nine figures for measurements that were computed and stored by the original runs but never looked at: Dice against IoU, the per-patient distributions behind every mean, all 171 tests by effect size against adjusted significance, the Benjamini-Hochberg step-up and a growing-family check, RQ7 at both saved checkpoints, the three pointing rules against a block-level chance baseline, what fraction of the volume each binarizer selects across the sweep, the window curve per region, and forward-pass cost against Dice. Reads the preprocessed masks as well as the result CSVs. |
 
 ---
 
@@ -107,5 +109,5 @@ Run order for a full reproduction is documented in the [root README](../README.m
 
 1. **Metrics are imported, never redefined.** `otsu_threshold()`, `dice_iou()` and `size_bin()` live in `evaluate_rq1.py` and are imported by every other evaluation script — including the supervised P′ — so cross-experiment comparisons cannot be confounded by differing implementations.
 2. **Splits are reproducible from a seed alone.** Every training and evaluation script derives its train/val split from `sorted(listdir())` plus a seeded shuffle, so passing the same `--seed` anywhere reconstructs the same held-out patients without storing a split file.
-3. **Several scripts carry built-in correctness gates.** `evaluate_rq8_compositionality.py` asserts its control condition reproduces RQ1's CSV; `evaluate_grounding_sweep.py` at window 32 must reproduce RQ11's. Both caught real bugs during development.
+3. **Several scripts carry built-in correctness gates.** `evaluate_rq8_compositionality.py` asserts its control condition reproduces RQ1's CSV; `evaluate_grounding_sweep.py` at window 32 must reproduce RQ11's; `evaluate_ablation_thresholds.py` requires its re-scored Otsu column to reproduce each arm's published CSV. Two of the three caught real bugs during development.
 4. **Every number in the report is recomputed from the per-patient CSVs in `results/`** by a script in this directory. No statistic is transcribed by hand.
