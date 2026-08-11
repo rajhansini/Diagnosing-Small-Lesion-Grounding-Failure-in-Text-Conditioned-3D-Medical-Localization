@@ -47,6 +47,13 @@ Not included in this repo (see below for how to regenerate):
 
 ## Reproducing this project
 
+> **Paths are absolute to the cluster this ran on.** Every script resolves its inputs and outputs
+> under `/net/projects/ranalab/rajhansini/nlp_project` — 51 of the 60 files in `src/` contain that
+> prefix, as do the `slurm/*.sbatch` job scripts. This was a research pipeline run in one place, not
+> a portable package. To run it elsewhere, replace that prefix with your own checkout path
+> (`grep -rl '/net/projects/ranalab/rajhansini/nlp_project' src/ slurm/` finds every occurrence);
+> nothing else about the code is machine-specific. The steps below otherwise hold as written.
+
 1. **Environment**: Python 3.10, PyTorch 2.4.0+cu121, MONAI 1.4.0, transformers 4.40.0. `requirements.txt` pins every version the reported results were produced under, and documents *why* the torch/MONAI/transformers pins cannot be bumped independently (Section 9 of the report tells the longer story). Install with `pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu121`.
 2. **Data**: download BraTS2020 from Kaggle (`awsaf49/brats20-dataset-training-validation`) into `data/BraTS2020_TrainingData/`.
 3. **Preprocess**: `python src/preprocess.py` — normalizes volumes, resizes to 128³, computes per-patient lesion volumes for size-bin stratification.
