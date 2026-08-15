@@ -8,7 +8,7 @@ author: "MPCS 53113 Natural Language Processing · University of Chicago"
 
 # How to read this document
 
-The main report (`report_draft.pdf`) is written as a research paper: tight, and assuming you already know what Dice and contrastive learning are. **This document is the opposite.** It explains everything from the ground up, walks through all fifteen experiments in the order they happened, names every script that produced every number, and says *why* each step was taken.
+The main report (`report_draft.pdf`) is written as a research paper: tight, and assuming you already know what Dice and contrastive learning are. **This document is the opposite.** It explains everything from the ground up, walks through all seventeen experiments in the order they happened, names every script that produced every number, and says *why* each step was taken.
 
 It is organised as:
 
@@ -17,12 +17,12 @@ It is organised as:
 | **1** | Plain-language primer — every concept used, explained from scratch |
 | **2** | The question, and why it matters |
 | **3** | The machinery: data, model, localization, metrics (with the code that does each) |
-| **4** | All fifteen experiments, in chronological order |
-| **5** | The six conclusions we had to reverse, and how each was caught |
-| **6** | Complete inventory: 60 scripts, 111 cluster jobs, 53 result files, 38 figures |
+| **4** | All seventeen experiments, in chronological order |
+| **5** | The eight conclusions we had to reverse, and how each was caught |
+| **6** | Complete inventory: 60 scripts, 120 cluster jobs, 53 result files, 38 figures |
 | **7** | How to reproduce everything |
 
-**Scale of the work:** 60 Python files (10,323 lines), 45 cluster job scripts, **111 SLURM jobs totalling 22.4 GPU-hours**, 53 per-patient result tables, 171 statistical tests, 38 figures.
+**Scale of the work:** 61 Python files (10,641 lines), 45 cluster job scripts, **120 SLURM jobs totalling 34.2 GPU-hours**, 62 per-patient result tables, 171 statistical tests, 38 figures.
 
 \newpage
 
@@ -566,9 +566,45 @@ Covered in full in Part 5.3, since it is a correction story. Summary of the fina
 
 **The pattern worth noting:** the miscalibrated binarizer distorted every *close* comparison while leaving the large negative effects intact — exactly the regime careful ablation work lives in.
 
+## RQ14 — Was it the window, or the number of windows?
+
+**The question.** RQ12 corrected the window result twice and still left one thing unvaried. Every condition in the sweep set **stride = window/2**. RQ12 isolated the *tiling convention* (50% overlap against none) but never broke the coupling itself, so shrinking the window always also multiplied the windows swept — 343 at 32³/16 against 8,000 at 12³/6. "Smaller receptive field" and "23× denser sampling" were the same experiment.
+
+**What we ran.** Four new conditions filling in the grid: `evaluate_rq12.sbatch` at 32/4, 16/4, 12/4 and 32/8 → `analyze_rq14.py`. Stride became a CSV column first, for the reason 5.3 taught us about filenames — two conditions now share a window and differ only in stride.
+
+| | Δ top-1% Dice | p |
+|---|---|---|
+| **Sampling density** (32³ fixed, stride 16→4) | **+0.0761** | 1.9×10⁻²⁷ |
+| **Receptive field** (stride 4 fixed, 32³→16³) | **+0.0201** | 4.0×10⁻⁵ |
+| Receptive field, 32³→12³ | +0.0130 | 0.071 (n.s.) |
+| Receptive field, 32³→8³ | −0.0162 | 0.0095 |
+| *The original confounded comparison* | +0.0724 | 1.3×10⁻²⁰ |
+
+**Most of it was sampling density.** The sampling term alone exceeds the entire effect RQ12 credited to window size. The window term is real but ~4× smaller, non-monotonic, and a significant *loss* by 8³. The tied-plateau size tracks stride³ exactly (4096=16³, 512=8³, 64=4³) and is independent of the window — the warning we should have read years earlier in the project.
+
+**But ET-small stays at 0/21 at every 32³ condition however finely sampled**, moving only when the window shrinks. So the architectural reading of RQ11 survives the control that dissolves most of the Dice story. That bin is the one place receptive field, not window count, binds.
+
+## RQ15 — The read-out was throwing the resolution away
+
+**The question.** RQ11 measured a 4,096-voxel plateau and concluded the model has no information inside the block it selects. That assumed the rule turning window scores into a heatmap is neutral. `localize.py` gives **every voxel in a window the same scalar** — an assertion that a window's evidence says nothing about where inside it the signal arose.
+
+**What we ran.** A `--weighting gaussian` option in `localize.py` (σ = w/4, centre-peaked), then the same sweep. Same model, same windows, same scores, no retraining and **no extra forward passes**. The default path is untouched and was regression-checked against the published CSV: Otsu bit-identical, predicted-voxel counts identical.
+
+| at 32³/stride 16 | uniform | gaussian |
+|---|---|---|
+| oracle Dice | 0.3085 | **0.4532** (+0.145, p=1.7×10⁻²⁷) |
+| top-1% Dice | 0.2968 | **0.3893** (+0.092) |
+| pooled pointing | 0.423 | **0.676** |
+| median plateau | 4,096 | **1** |
+| **ET-small** | **0/21** | **7/21** |
+
+**This is the largest single effect in the project, and it costs nothing** — the same 343 forward passes the published protocol already paid for. It beats the best densely-sampled cell in RQ14's grid (16³/4, oracle 0.4376) at 71× less compute.
+
+**Otsu moves the other way for the third time** (−0.066): the centre-weighted heatmap is smooth and high-entropy, exactly the histogram shape its between-class criterion handles worst.
+
 \newpage
 
-# Part 5 — The six conclusions we had to reverse
+# Part 5 — The eight conclusions we had to reverse
 
 This is the most valuable part of the project. Each of these was plausible, statistically significant, internally consistent — and wrong. None was caught by a p-value.
 
@@ -643,7 +679,27 @@ Both *point* rules agree, so the headline stands: the model never points at a sm
 
 ![Left: all three rules at the published protocol, with each bin's block-level chance as a black tick. Right: the spread between the most and least generous rule, by plateau size — the ambiguity shrinks with the stride that causes it, so it is a property of the protocol, not a doubt about the model.](figures/fig_pointing_rules.png){width=100%}
 
-**Why this one is different from the other five.** Every earlier reversal took something away. This one replaced an overreach with a mechanism. It is also the cheapest of the six: the column had been sitting in the CSVs since the RQ12 run, and nothing had to be re-computed except a chance baseline from the masks.
+**Why this one is different from the earlier five.** Every earlier reversal took something away. This one replaced an overreach with a mechanism. It was also the cheapest so far: the column had been sitting in the CSVs since the RQ12 run, and nothing had to be re-computed except a chance baseline from the masks.
+
+## 5.7 What the window result was measuring (caught by confound isolation, again)
+
+The same tool that caught 5.3, applied to the same result, one level deeper — and it is uncomfortable that it took two passes to see.
+
+5.3 found that the 8³/6³ points changed tiling as well as window size, added the missing overlap-matched control, and declared the confound isolated. It was not. **Every** condition in the sweep, including the corrected ones, set stride = window/2. So the *entire curve* varied receptive field and sampling density together, and the correction in 5.3 only fixed the two points where the ratio changed from 2.0 to 1.0.
+
+Running the factorial that varies them independently reassigns the effect: +0.076 Dice to sampling density at a fixed 32³ window, +0.020 to the window at fixed stride. The tied plateau equals stride³ regardless of window — which had been printed in the RQ12 tables the whole time.
+
+**What changed.** "Use a smaller query window, worth +0.060" becomes "sample the volume more densely, worth +0.076, and shrink the window for a further +0.020 that reverses if you go below 16³". What did *not* change is ET-small, which stays at 0/21 under every 32³ condition however fine the stride.
+
+## 5.8 What the ET-small failure actually is, again (caught by asking what the read-out asserts)
+
+The one that hurt most, because it withdrew the sentence 5.6 had just installed as the paper's mechanism.
+
+5.6 concluded the model has no information inside the block it selects. That inference has a premise nobody stated: that spreading a window's score *uniformly* over everything it covers is a neutral way to build a heatmap. It is not — it is a claim that a window's evidence is equally about every voxel in it, which is obviously false for a 32³ window looking at a 4 mm lesion.
+
+Weighting each window's contribution toward its own centre instead — no retraining, no extra forward passes, same scores — collapses the plateau from 4,096 voxels to 1 and takes ET-small from **0/21 to 7/21**, with +0.145 oracle Dice.
+
+**What changed.** The information was there the whole time; the read-out was averaging it away. The measurement in 5.6 stands, the inference drawn from it does not. And the pattern across 5.3, 5.7 and 5.8 is the real lesson: three separate components — the binarizer, the stride coupling, the accumulation rule — were each chosen for a good reason on one axis and never evaluated on the axis that decided the result.
 
 ## What this adds up to
 
@@ -657,7 +713,7 @@ Also: **a single control is not a verdict.** Version 2 above *was* a control, an
 
 # Part 6 — Complete inventory
 
-## 6.1 Every Python file (60 files, 10,323 lines)
+## 6.1 Every Python file (61 files, 10,641 lines)
 
 **Data pipeline**
 
@@ -677,7 +733,7 @@ Also: **a single control is not a verdict.** Version 2 above *was* a control, an
 | `dataset_rq4.py` | 90 | Scale-matched patches (16/32/64 → 32) |
 | `dataset_pprime.py` | 105 | Full-volume dense-label loader for P′ |
 | `model.py` | 51 | `TextVolumeAligner` |
-| `localize.py` | 72 | `sliding_window_heatmap()` |
+| `localize.py` | 109 | `sliding_window_heatmap()` |
 
 **Training (7 files)** — `train_baseline.py` (118), `train_rq2.py` (128), `train_rq4.py` (128), `train_rq5.py` (128), `train_rq6.py` (146), `train_rq7.py` (152), `train_pprime_supervised.py` (195)
 
@@ -689,7 +745,7 @@ Also: **a single control is not a verdict.** Version 2 above *was* a control, an
 
 **Figures (13 files)** — `make_figures.py` (107), `make_overlay_figure.py` (67), `generate_example_heatmaps.py` (51), `make_figure4_scale_comparison.py` (71), `make_figure5_window_curve.py` (68), `make_figure_architecture.py` (106), `make_figure_leaderboard.py` (70), `make_figure_roadmap.py` (145), `make_figure_significance_heatmap.py` (105), `make_figures_rq7_rq8_rq12.py` (265), `make_figures_dataset_and_evidence.py` (463), `make_figures_supplementary.py` (883), `make_figures_appendix.py` (712)
 
-## 6.2 Cluster jobs — 111 SLURM jobs, 22.4 GPU-hours
+## 6.2 Cluster jobs — 120 SLURM jobs, 34.2 GPU-hours
 
 Notable runtimes: baseline training 24m · P′ training 37m · RQ3b eval 19m · window-6 eval 64m · window-12 eval 52m · RQ8 probes 15m · 8³/stride-4 eval 32m.
 
@@ -737,7 +793,7 @@ Every figure regenerates from the result CSVs and training logs; none was drawn 
 
 ![All 171 paired significance tests in one panel.](figures/fig_significance_heatmap.png){width=98%}
 
-## 6.4 Result files (53 CSVs)
+## 6.4 Result files (62 CSVs)
 
 One row per (patient, region) with Dice, IoU, size bin and true volume. Naming: `<experiment>_localization_scores.csv` for seed 0; `_seed1`/`_seed2` for replications. The RQ11/RQ12/RQ13 files add a `threshold_method` column (five rows per patient) plus pointing-game columns. `full_family_statistics.csv` is the derived table of all 171 tests.
 
@@ -775,7 +831,7 @@ One row per (patient, region) with Dice, IoU, size bin and true volume. Naming: 
 
 # Closing summary
 
-**What was built.** A complete text-conditioned 3D localization pipeline: preprocessing, contrastive alignment, sliding-window localization, five binarization rules, three localization metrics, and a twelve-tool diagnostic layer — 60 files, 10,323 lines, 111 cluster jobs, 38 figures.
+**What was built.** A complete text-conditioned 3D localization pipeline: preprocessing, contrastive alignment, sliding-window localization, five binarization rules, three localization metrics, and a twelve-tool diagnostic layer — 61 files, 10,641 lines, 120 cluster jobs, 38 figures.
 
 **What was found.**
 
@@ -784,6 +840,6 @@ One row per (patient, region) with Dice, IoU, size bin and true volume. Naming: 
 3. Exactly **one intervention works** — a smaller query window (12³–16³), no retraining — worth +0.060 Dice under a deployable threshold, and it lifts enhancing-tumor pointing in every size bin, taking the previously-at-chance small-ET bin from 0/21 to 4/21.
 4. Replacing Otsu with a fixed top-1% threshold is a **second free improvement**, worth 2–4× Dice.
 
-**What was learned, and what is most transferable.** Six conclusions in this work were overturned *after* being written up — every one by a control, none by a p-value. The general lesson: **a shared confound is not a cancelled confound.** When every arm of a comparison passes through the same miscalibrated instrument, the comparison still looks clean while being ranked backwards. And a single control is not a verdict — our first correction to the window result was itself confounded, and only a second control settled it.
+**What was learned, and what is most transferable.** Eight conclusions in this work were overturned *after* being written up — every one by a control, none by a p-value. The general lesson: **a shared confound is not a cancelled confound.** When every arm of a comparison passes through the same miscalibrated instrument, the comparison still looks clean while being ranked backwards. And a single control is not a verdict — our first correction to the window result was itself confounded, a second control reassigned most of it to sampling density, and a third showed the mechanism it was meant to explain was an artifact of the read-out. Three components chosen for good reasons on one axis, none evaluated on the axis that decided the answer.
 
 That is the honest shape of this project: a modest positive finding, a strong negative one about language, and a methodology that repeatedly caught its own author being wrong.

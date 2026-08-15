@@ -1,0 +1,148 @@
+RQ14/RQ15: window size against sampling density, and the accumulation rule
+Recomputed from results/rq12_grounding_*_scores.csv; nothing here is transcribed by hand.
+
+============================================================================================================
+[A] THE WINDOW x STRIDE GRID -- the two settings Section 7.11 never varied independently
+============================================================================================================
+    Every condition in the original sweep used stride = window/2, so the curve varied
+    receptive field and sampling density together at every point.
+
+    window  stride   windows/vol      Otsu    top 1%    oracle    ties
+      32^3     16           343    0.0972    0.2968    0.3085   4,096
+      32^3      8         2,197    0.0902    0.3590    0.3779     512
+      32^3      4        15,625    0.0862    0.3730    0.4005      64
+      16^3      8         3,375    0.1127    0.3631    0.4152     512
+      16^3      4        24,389    0.1111    0.3930    0.4376      64
+      12^3      6         8,000    0.1169    0.3693    0.4079     216
+      12^3      4        27,000    0.1150    0.3860    0.4240      64
+       8^3      4        29,791    0.1239    0.3568    0.3754      64
+
+    The median tied-plateau size tracks stride^3 exactly (16^3=4096, 8^3=512, 4^3=64),
+    confirming that sampling density, not window size, sets the heatmap's resolution.
+
+============================================================================================================
+[B] DECOMPOSITION -- which of the two the reported +0.060 was actually measuring
+============================================================================================================
+
+    -- top 1% (deployable) --
+    SAMPLING DENSITY, window held at 32^3:
+      32^3/16 -> 32^3/8    d=+0.0621  p=5.21e-24  n=213
+      32^3/16 -> 32^3/4    d=+0.0761  p=1.93e-27  n=213
+    RECEPTIVE FIELD, stride held at 4:
+      32^3/4  -> 16^3/4    d=+0.0201  p=3.98e-05  n=213
+      32^3/4  -> 12^3/4    d=+0.0130  p=7.06e-02  n=213   (n.s.)
+      32^3/4  ->  8^3/4    d=-0.0162  p=9.47e-03  n=213
+    THE ORIGINAL CONFOUNDED COMPARISON:
+      32^3/16 -> 12^3/6    d=+0.0724  p=1.33e-20  n=213
+    BEST CELL IN THE GRID against the recommendation Section 7.11 made:
+      12^3/6  -> 16^3/4    d=+0.0238  p=1.46e-15  n=213
+
+    -- oracle volume (diagnostic) --
+    SAMPLING DENSITY, window held at 32^3:
+      32^3/16 -> 32^3/8    d=+0.0693  p=4.99e-14  n=213
+      32^3/16 -> 32^3/4    d=+0.0919  p=7.68e-19  n=213
+    RECEPTIVE FIELD, stride held at 4:
+      32^3/4  -> 16^3/4    d=+0.0372  p=1.29e-07  n=213
+      32^3/4  -> 12^3/4    d=+0.0235  p=4.97e-03  n=213
+      32^3/4  ->  8^3/4    d=-0.0251  p=1.39e-01  n=213   (n.s.)
+    THE ORIGINAL CONFOUNDED COMPARISON:
+      32^3/16 -> 12^3/6    d=+0.0994  p=1.26e-16  n=213
+    BEST CELL IN THE GRID against the recommendation Section 7.11 made:
+      12^3/6  -> 16^3/4    d=+0.0297  p=1.07e-08  n=213
+
+============================================================================================================
+[C] POINTING GAME ACROSS THE GRID -- sampling density does not rescue small ET
+============================================================================================================
+    hits / n, plateau-centroid rule
+    region  bin           32/16       32/8       32/4       16/4       12/4        8/4
+    ET      small          0/21       1/21       0/21       0/21       2/21       4/21
+    ET      medium         3/23       3/23       7/23       4/23      10/23      13/23
+    ET      large          8/23      11/23      11/23      15/23      19/23      14/23
+    TC      small          3/27       5/27       6/27       7/27       3/27       0/27
+    TC      medium         8/23      15/23      16/23      18/23      12/23       3/23
+    TC      large         16/23      21/23      22/23      19/23       9/23       5/23
+    WT      small         17/32      17/32      20/32      28/32      26/32      26/32
+    WT      medium        18/21      19/21      20/21      19/21      18/21      18/21
+    WT      large         17/20      20/20      20/20      20/20      20/20      20/20
+
+    pooled                0.423      0.526      0.573      0.610      0.559      0.484
+
+    Small enhancing tumor stays at 0/21 at every 32^3 condition however fine the stride,
+    and only moves when the window itself shrinks. The architectural reading of Section
+    6.3 therefore survives the control that removes sampling density -- it is the one
+    place in the grid where receptive field, not window count, is the binding constraint.
+
+============================================================================================================
+[D] THE ACCUMULATION RULE -- what uniform smearing was discarding
+============================================================================================================
+    Same trained model, same windows, same scores. Only how a window's single scalar is
+    attributed to the voxels it covers changes: uniformly, or weighted by a centre-peaked
+    Gaussian. No retraining, no additional forward passes.
+
+    -- 32^3 / stride 16 (343 windows/volume) --
+      rule               uniform  gaussian     delta           p
+      otsu                0.0972    0.0310   -0.0662    1.06e-36
+      pct90               0.1034    0.1012   -0.0023    1.51e-09
+      pct95               0.1774    0.1795   +0.0021    7.37e-02
+      pct99               0.2968    0.3893   +0.0924    7.01e-29
+      oracle_volume       0.3085    0.4532   +0.1446    1.74e-27
+      pooled pointing      0.423     0.676
+      median plateau       4,096         1
+      ET-small hits         0/21      7/21
+
+    -- 12^3 / stride 6 (8,000 windows/volume) --
+      rule               uniform  gaussian     delta           p
+      otsu                0.1169    0.0574   -0.0595    1.06e-36
+      pct90               0.1047    0.1048   +0.0000    2.31e-01
+      pct95               0.1855    0.1900   +0.0045    5.08e-32
+      pct99               0.3693    0.3931   +0.0238    1.49e-28
+      oracle_volume       0.4079    0.4395   +0.0315    3.20e-18
+      pooled pointing      0.540     0.573
+      median plateau         216         1
+      ET-small hits         1/21      6/21
+
+    -- 16^3 / stride 4 (24,389 windows/volume) --
+      rule               uniform  gaussian     delta           p
+      otsu                0.1111    0.1018   -0.0093    1.53e-34
+      pct90               0.1049    0.1049   +0.0000    9.02e-03
+      pct95               0.1881    0.1903   +0.0022    1.30e-22
+      pct99               0.3930    0.4209   +0.0278    4.31e-34
+      oracle_volume       0.4376    0.4874   +0.0498    3.34e-29
+      pooled pointing      0.610     0.657
+      median plateau          64         1
+      ET-small hits         0/21      3/21
+
+============================================================================================================
+[E] THE ACCUMULATION CHANGE, PER REGION AND BIN, AT THE PUBLISHED 32^3/16 PROTOCOL
+============================================================================================================
+    region  bin         uniform  gaussian     delta   pointing u -> g
+    ET      small        0.0258    0.1748   +0.1491    0/21  ->  7/21
+    ET      medium       0.1516    0.2530   +0.1014    3/23  -> 11/23
+    ET      large        0.3635    0.4787   +0.1152    8/23  -> 18/23
+    TC      small        0.0942    0.2416   +0.1474    3/27  -> 12/27
+    TC      medium       0.3193    0.4645   +0.1452    8/23  -> 20/23
+    TC      large        0.5156    0.6665   +0.1509   16/23  -> 21/23
+    WT      small        0.2597    0.4548   +0.1950   17/32  -> 20/32
+    WT      medium       0.5156    0.6672   +0.1517   18/21  -> 16/21
+    WT      large        0.6224    0.7462   +0.1238   17/20  -> 19/20
+
+    Otsu moves the other way (Section 7.11's mechanism, a third time): the centre-weighted
+    heatmap is smooth and high-entropy, which is exactly the histogram shape Otsu's
+    between-class-variance criterion scores worst, so the rule that rewarded the blockiest
+    heatmap in the sweep also penalises the sharpest one here.
+
+============================================================================================================
+[F] COST -- the read-out fix is free, the sampling fix is not
+============================================================================================================
+    condition                           windows/vol  oracle Dice
+    32^3/16 uniform (published)                 343       0.3085
+    16^3/4  uniform (best uniform)           24,389       0.4376
+    32^3/16 gaussian                            343       0.4532
+    12^3/6  gaussian                          8,000       0.4395
+    16^3/4  gaussian                         24,389       0.4874
+
+    The centre-weighted read-out costs nothing at all -- the same 343 forward passes the
+    original protocol already paid for -- and beats the best uniform cell in the grid,
+    which needs 71x more of them.
+
+Done.

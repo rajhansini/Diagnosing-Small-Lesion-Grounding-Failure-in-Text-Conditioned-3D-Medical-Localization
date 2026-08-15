@@ -59,6 +59,9 @@ def main():
     parser.add_argument("--window_size", type=int, required=True,
                         help="physical query window swept over the volume; 32 reproduces RQ11")
     parser.add_argument("--stride", type=int, required=True)
+    parser.add_argument("--weighting", choices=["uniform", "gaussian"], default="uniform",
+                        help="how each window's scalar score is spread over the voxels it covers; "
+                             "uniform reproduces every result before RQ14")
     parser.add_argument("--limit_patients", type=int, default=None,
                         help="smoke tests only: truncate the val set AFTER the split is computed")
     args = parser.parse_args()
@@ -104,7 +107,7 @@ def main():
             heatmap = sliding_window_heatmap(
                 model, image, text_proj[region_idx],
                 window_size=args.window_size, stride=args.stride,
-                model_input_size=32, device=device,
+                model_input_size=32, device=device, weighting=args.weighting,
             ).numpy()
 
             # Tie-aware peak location. When stride == window_size the windows do not overlap, so every
@@ -144,6 +147,7 @@ def main():
                     # varies stride at a fixed window, so two conditions can share a window size and
                     # rows merged from both would otherwise be indistinguishable.
                     "stride": args.stride,
+                    "weighting": args.weighting,
                     "threshold_method": method,
                     "true_volume_mm3": true_vol,
                     "gt_voxels_resized": gt_voxels,
@@ -166,7 +170,8 @@ def main():
                   f"peak_hit={int(argmax_hit)} peak_dist={dist_mm:.1f}mm "
                   f"ties={n_tied} centroid_hit={int(centroid_hit)}", flush=True)
 
-    fieldnames = ["patient_id", "region", "size_bin", "window_size", "stride", "threshold_method",
+    fieldnames = ["patient_id", "region", "size_bin", "window_size", "stride", "weighting",
+                  "threshold_method",
                   "true_volume_mm3", "gt_voxels_resized", "gt_volume_mm3_resized",
                   "pred_voxels", "pred_volume_mm3", "dice", "iou", "argmax_hit", "argmax_dist_mm",
                   "peak_tie_count", "centroid_hit", "centroid_dist_mm", "any_tied_hit"]
@@ -174,9 +179,14 @@ def main():
     # non-overlapping tiling partway down the sweep, so (window, stride) pairs are distinct
     # conditions and a window-only filename would silently overwrite one with the other.
     suffix = "_smoke" if args.limit_patients else ""
+    # Accumulation mode joins window and stride as part of the condition's identity, for the same
+    # reason stride did: a gaussian run and a uniform run at the same window and stride are different
+    # experiments. The default is left unsuffixed so every path written before RQ14 is unchanged and
+    # the RQ11 reproduction gate still resolves.
+    wsuffix = "" if args.weighting == "uniform" else f"_{args.weighting}"
     csv_path = os.path.join(
         RESULTS_DIR,
-        f"rq12_grounding_window{args.window_size}_stride{args.stride}{suffix}_scores.csv")
+        f"rq12_grounding_window{args.window_size}_stride{args.stride}{wsuffix}{suffix}_scores.csv")
     with open(csv_path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
