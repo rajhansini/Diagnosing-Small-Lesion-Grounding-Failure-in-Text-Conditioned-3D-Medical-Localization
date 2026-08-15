@@ -132,6 +132,25 @@ Recomputed from results/rq12_grounding_*_scores.csv; nothing here is transcribed
     heatmap in the sweep also penalises the sharpest one here.
 
 ============================================================================================================
+[G] KERNEL WIDTH -- the one free parameter the read-out introduces
+============================================================================================================
+    All at the published 32^3/stride-16 protocol. sigma is a fraction of the window edge.
+
+    sigma                      Otsu   top 1%   oracle  pointing  ET-small
+    uniform (no kernel)      0.0972   0.2968   0.3085     0.423      0/21
+    w/8                      0.0140   0.2885   0.3093     0.671      8/21
+    w/4  (reported)          0.0310   0.3893   0.4532     0.676      7/21
+    w/2                      0.0904   0.3457   0.3750     0.624      3/21
+
+    Both Dice rules peak at w/4 and both threshold-free measures peak at or just below
+    it, so the a priori choice is an interior optimum rather than a lucky guess. The two
+    ends fail differently: at w/2 the kernel is wide enough to approach uniform smearing
+    (Otsu returns to 0.09, near its uniform value), while at w/8 a near-delta kernel gives
+    the best pointing and the best small-ET result in the project but a poor mask, because
+    it discards the window's real extent. The width that best draws a lesion is not quite
+    the width that best finds it.
+
+============================================================================================================
 [F] COST -- the read-out fix is free, the sampling fix is not
 ============================================================================================================
     condition                           windows/vol  oracle Dice

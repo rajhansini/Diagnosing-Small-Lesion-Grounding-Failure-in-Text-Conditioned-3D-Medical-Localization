@@ -62,6 +62,9 @@ def main():
     parser.add_argument("--weighting", choices=["uniform", "gaussian"], default="uniform",
                         help="how each window's scalar score is spread over the voxels it covers; "
                              "uniform reproduces every result before RQ14")
+    parser.add_argument("--sigma_frac", type=float, default=0.25,
+                        help="gaussian only: kernel standard deviation as a fraction of the window "
+                             "edge; 0.25 is the width RQ15 reported")
     parser.add_argument("--limit_patients", type=int, default=None,
                         help="smoke tests only: truncate the val set AFTER the split is computed")
     args = parser.parse_args()
@@ -108,6 +111,7 @@ def main():
                 model, image, text_proj[region_idx],
                 window_size=args.window_size, stride=args.stride,
                 model_input_size=32, device=device, weighting=args.weighting,
+                sigma_frac=args.sigma_frac,
             ).numpy()
 
             # Tie-aware peak location. When stride == window_size the windows do not overlap, so every
@@ -148,6 +152,7 @@ def main():
                     # rows merged from both would otherwise be indistinguishable.
                     "stride": args.stride,
                     "weighting": args.weighting,
+                    "sigma_frac": args.sigma_frac if args.weighting == "gaussian" else "",
                     "threshold_method": method,
                     "true_volume_mm3": true_vol,
                     "gt_voxels_resized": gt_voxels,
@@ -171,7 +176,7 @@ def main():
                   f"ties={n_tied} centroid_hit={int(centroid_hit)}", flush=True)
 
     fieldnames = ["patient_id", "region", "size_bin", "window_size", "stride", "weighting",
-                  "threshold_method",
+                  "sigma_frac", "threshold_method",
                   "true_volume_mm3", "gt_voxels_resized", "gt_volume_mm3_resized",
                   "pred_voxels", "pred_volume_mm3", "dice", "iou", "argmax_hit", "argmax_dist_mm",
                   "peak_tie_count", "centroid_hit", "centroid_dist_mm", "any_tied_hit"]
@@ -184,6 +189,10 @@ def main():
     # experiments. The default is left unsuffixed so every path written before RQ14 is unchanged and
     # the RQ11 reproduction gate still resolves.
     wsuffix = "" if args.weighting == "uniform" else f"_{args.weighting}"
+    # Kernel width joins the condition's identity too, and 0.25 stays unsuffixed so the
+    # three CSVs RQ15 already wrote keep their paths.
+    if args.weighting == "gaussian" and args.sigma_frac != 0.25:
+        wsuffix += f"_sigma{str(args.sigma_frac).replace('.', 'p')}"
     csv_path = os.path.join(
         RESULTS_DIR,
         f"rq12_grounding_window{args.window_size}_stride{args.stride}{wsuffix}{suffix}_scores.csv")

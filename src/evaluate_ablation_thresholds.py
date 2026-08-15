@@ -19,6 +19,7 @@ import argparse
 import csv
 import os
 import random
+import time
 
 import numpy as np
 import torch
@@ -54,7 +55,8 @@ ARMS = {
 }
 
 
-def build_heatmap(model, image, text_proj, class_to_idx, region, scale_matched, device):
+def build_heatmap(model, image, text_proj, class_to_idx, region, scale_matched, device,
+                  weighting="uniform"):
     """Reproduce one arm's published heatmap: a voxel-wise max over the size-phrasing ensemble.
 
     RQ2 queries all three size phrasings at the model's native 32³ window. RQ4 and RQ6 additionally
@@ -69,6 +71,12 @@ def build_heatmap(model, image, text_proj, class_to_idx, region, scale_matched, 
         region: ET/TC/WT.
         scale_matched: True for RQ4/RQ6, False for RQ2.
         device: torch device string.
+        weighting: accumulation rule passed to sliding_window_heatmap. "uniform" reproduces the
+            published Section 7 protocol; "gaussian" applies the centre-weighted read-out RQ15
+            showed is worth +0.145 Dice at the baseline. Since these arms build their heatmap by a
+            voxel-wise maximum over three queries, and the read-out changes each query's spatial
+            profile before that maximum is taken, the arms need not respond to it the way the
+            single-query baseline does -- which is the whole reason for re-scoring them.
 
     Returns:
         (D, H, W) float ndarray, the ensemble heatmap.
@@ -80,10 +88,10 @@ def build_heatmap(model, image, text_proj, class_to_idx, region, scale_matched, 
             crop = CROP_SIZE_BY_BIN[bin_label]
             hm = sliding_window_heatmap(model, image, text_proj[idx], window_size=crop,
                                         stride=STRIDE_BY_CROP[crop], model_input_size=32,
-                                        device=device)
+                                        device=device, weighting=weighting)
         else:
             hm = sliding_window_heatmap(model, image, text_proj[idx], patch_size=32, stride=16,
-                                        device=device)
+                                        device=device, weighting=weighting)
         maps.append(hm.numpy())
     return np.maximum.reduce(maps)
 
@@ -93,6 +101,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--rq", required=True, choices=sorted(ARMS))
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--weighting", choices=["uniform", "gaussian"], default="uniform",
+                        help="accumulation rule; uniform reproduces the published Section 7 scores")
+    parser.add_argument("--max_hours", type=float, default=None,
+                        help="stop cleanly before the SLURM wall and exit 42 so the job script can "
+                             "resubmit; completed (patient, region) pairs are already on disk")
     parser.add_argument("--limit_patients", type=int, default=None, help="smoke tests only")
     args = parser.parse_args()
 
@@ -126,12 +139,44 @@ def main():
     print(f"evaluating on {len(val_ids)} held-out patients")
 
     os.makedirs(RESULTS_DIR, exist_ok=True)
-    rows = []
+    suffix = "_smoke" if args.limit_patients else ""
+    seed_tag = "" if args.seed == 0 else f"_seed{args.seed}"
+    # Accumulation mode is part of the condition's identity, as it is for the window sweep. The
+    # default stays unsuffixed so the three CSVs Section 7.12 published keep their paths and the
+    # Otsu reproduction gate still resolves against them.
+    wtag = "" if args.weighting == "uniform" else f"_{args.weighting}"
+    csv_path = os.path.join(RESULTS_DIR,
+                            f"rq13_{args.rq}{seed_tag}_thresholds{wtag}{suffix}_scores.csv")
+
+    # Resume support. The gaussian read-out costs ~3.8x the uniform one per window, which puts the
+    # scale-matched arms near this cluster's wall-clock cap, and a job killed at the wall would
+    # otherwise discard hours of completed patients -- the same failure the preprocessing script hit
+    # in Section 9 and was fixed the same way. Rows are appended per (patient, region) as they are
+    # produced, and a restart skips whatever is already on disk.
+    done = set()
+    if os.path.exists(csv_path):
+        with open(csv_path, newline="") as fh:
+            done = {(row["patient_id"], row["region"]) for row in csv.DictReader(fh)}
+        print(f"resuming: {len(done)} (patient, region) pairs already scored in {csv_path}")
+
+    started = time.time()
+    writer = None
+    fh = open(csv_path, "a" if done else "w", newline="")
+    incomplete = False
+    rows = []          # rows written by *this* invocation; the resumed total is re-read at the end
+
     for region in ["ET", "TC", "WT"]:
         for i, pid in enumerate(val_ids):
             true_vol = float(true_volumes[pid][f"{region.lower()}_volume_mm3"])
             if true_vol <= 0:
                 continue
+            if (pid, region) in done:
+                continue
+            if args.max_hours and (time.time() - started) / 3600.0 > args.max_hours:
+                print(f"\nreached --max_hours={args.max_hours}; stopping cleanly with work left",
+                      flush=True)
+                incomplete = True
+                break
 
             data = np.load(os.path.join(PREPROC, f"{pid}.npz"))
             image = torch.from_numpy(data["image"]).float()
@@ -140,7 +185,7 @@ def main():
             bin_label = size_bin(true_vol, region)
 
             heatmap = build_heatmap(model, image, text_proj, class_to_idx, region,
-                                    scale_matched, device)
+                                    scale_matched, device, weighting=args.weighting)
 
             # Tie-aware peak, for the same reason as RQ12: a strided sliding window makes the
             # heatmap piecewise-constant over blocks, so a bare argmax returns a block corner.
@@ -159,9 +204,10 @@ def main():
                     heatmap, round(heatmap.size * (100.0 - pct) / 100.0))
             candidates["oracle_volume"] = top_k_mask(heatmap, gt_voxels)
 
+            batch = []
             for method, pred_mask in candidates.items():
                 dice, iou = dice_iou(pred_mask, gt_mask)
-                rows.append({
+                batch.append({
                     "patient_id": pid, "region": region, "size_bin": bin_label,
                     "arm": args.rq, "threshold_method": method,
                     "true_volume_mm3": true_vol,
@@ -173,23 +219,35 @@ def main():
                     "peak_tie_count": int(tied.shape[0]),
                     "centroid_hit": int(centroid_hit), "centroid_dist_mm": centroid_dist_mm,
                 })
-            otsu_row = next(r for r in rows[-len(candidates):] if r["threshold_method"] == "otsu")
-            pct99_row = next(r for r in rows[-len(candidates):] if r["threshold_method"] == "pct99")
+            # Append this (patient, region) before moving on, so a kill at the wall costs at most
+            # the pair in flight rather than the whole run.
+            if writer is None:
+                writer = csv.DictWriter(fh, fieldnames=list(batch[0]))
+                if not done:
+                    writer.writeheader()
+            writer.writerows(batch)
+            fh.flush()
+            rows.extend(batch)
+
+            otsu_row = next(r for r in batch if r["threshold_method"] == "otsu")
+            pct99_row = next(r for r in batch if r["threshold_method"] == "pct99")
             print(f"[{region}] ({i + 1}/{len(val_ids)}) {pid}: bin={bin_label} "
                   f"otsu={otsu_row['dice']:.3f} pct99={pct99_row['dice']:.3f}", flush=True)
+        if incomplete:
+            break
 
-    suffix = "_smoke" if args.limit_patients else ""
-    seed_tag = "" if args.seed == 0 else f"_seed{args.seed}"
-    csv_path = os.path.join(RESULTS_DIR, f"rq13_{args.rq}{seed_tag}_thresholds{suffix}_scores.csv")
-    with open(csv_path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=list(rows[0]))
-        writer.writeheader()
-        writer.writerows(rows)
-    print(f"\nSaved {len(rows)} rows to {csv_path}")
+    fh.close()
+    print(f"\nWrote {len(rows)} new rows to {csv_path}")
 
-    print(f"\n=== {args.rq}: mean Dice by binarizer ===")
+    if incomplete:
+        print("EXITING 42: work remains, job script should resubmit")
+        raise SystemExit(42)
+
+    with open(csv_path, newline="") as f:
+        allrows = list(csv.DictReader(f))
+    print(f"\n=== {args.rq}: mean Dice by binarizer ({len(allrows)} rows total) ===")
     for m in ["otsu", "pct90", "pct95", "pct99", "oracle_volume"]:
-        vals = [r["dice"] for r in rows if r["threshold_method"] == m]
+        vals = [float(r["dice"]) for r in allrows if r["threshold_method"] == m]
         print(f"  {m:<15}{np.mean(vals):.4f}")
 
 

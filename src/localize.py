@@ -25,7 +25,7 @@ def _gaussian_kernel(size, sigma_frac=0.25):
 
 def sliding_window_heatmap(model, volume, text_proj_vec, patch_size=32, stride=16, device="cpu",
                             batch_size=64, window_size=None, model_input_size=32,
-                            weighting="uniform"):
+                            weighting="uniform", sigma_frac=0.25):
     """Sweep the trained patch encoder across a volume and accumulate per-voxel query similarity.
 
     This replaced Grad-CAM, which is unusable here: the encoder global-average-pools each patch to a
@@ -55,6 +55,10 @@ def sliding_window_heatmap(model, volume, text_proj_vec, patch_size=32, stride=1
             blocks and is the resolution bottleneck Section 6.3 measures. "gaussian" weights the
             contribution by a centre-peaked kernel instead, so a window's evidence is attributed
             mostly to where it was looking, and overlapping windows can disagree within a block.
+        sigma_frac: for the gaussian mode, the kernel's standard deviation as a fraction of the
+            window edge. Scaling with the window rather than fixing it in voxels keeps the shape of
+            the weighting identical at every window size, which is what makes conditions comparable.
+            Too wide approaches uniform smearing; too narrow discards the window's real extent.
 
     Returns:
         (D, H, W) float tensor of averaged cosine similarities to the query.
@@ -63,7 +67,7 @@ def sliding_window_heatmap(model, volume, text_proj_vec, patch_size=32, stride=1
         window_size = patch_size
     if weighting not in ("uniform", "gaussian"):
         raise ValueError(f"unknown weighting {weighting!r}; expected 'uniform' or 'gaussian'")
-    kernel = _gaussian_kernel(window_size) if weighting == "gaussian" else None
+    kernel = _gaussian_kernel(window_size, sigma_frac) if weighting == "gaussian" else None
     D, H, W = volume.shape[1:]
     heatmap = torch.zeros(D, H, W)
     counts = torch.zeros(D, H, W)

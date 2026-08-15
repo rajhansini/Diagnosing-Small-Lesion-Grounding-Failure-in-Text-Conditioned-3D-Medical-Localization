@@ -812,6 +812,19 @@ At the original published 32³/stride-16 protocol:
 
 The reading of Section 6.3 has to be narrowed a second time. It is not that the model has no information inside the block; it is that **the uniform read-out discarded the information the model did have.** What survives is the weaker and now better-supported claim: the model's evidence about a small enhancing tumor is real but coarse, and how that evidence is attributed to space determines whether any of it reaches the metric.
 
+**The kernel width was chosen before it was swept, so we swept it.** σ = w/4 was picked a priori as a reasonable compromise, which is not an argument. Running the same protocol at three widths shows it is an interior optimum rather than a lucky guess, and that the two ends fail in the two different ways the mechanism predicts:
+
+| σ (fraction of window edge) | Otsu | top 1% | oracle | pooled pointing | ET-small |
+|---|---|---|---|---|---|
+| *uniform (no kernel)* | 0.0972 | 0.2968 | 0.3085 | 0.423 | 0/21 |
+| w/8 | 0.0140 | 0.2885 | 0.3093 | 0.671 | **8/21** |
+| **w/4** | 0.0310 | **0.3893** | **0.4532** | **0.676** | 7/21 |
+| w/2 | 0.0904 | 0.3457 | 0.3750 | 0.624 | 3/21 |
+
+At **w/2** the kernel is wide enough to approach uniform smearing again, and the numbers say so: Otsu climbs back to 0.0904 against uniform's 0.0972, and oracle Dice falls to 0.3750. At **w/8** the opposite failure appears. A near-delta kernel localises the peak superbly — the best pointing rate in the table and the best small-ET result anywhere in this report, 8 of 21 — but discards the window's real spatial extent, so the *mask* it draws is poor and Dice falls back to roughly the uniform value.
+
+Both Dice rules peak at w/4; both threshold-free measures peak at or just below it. That is a genuine trade-off rather than a curve with one summit: **the width that best draws the lesion is not quite the width that best finds it**, and a system that cares about detection rather than delineation should use a narrower kernel than the one this section reports.
+
 **Otsu moves the other way, for the third time.** Centre-weighting makes the heatmap smooth and high-entropy, which is precisely the histogram shape Otsu's between-class-variance criterion handles worst — so the rule that rewarded the blockiest heatmap in Section 7.11's tiling comparison also penalises the sharpest one here, by −0.066. Every calibrated rule and both threshold-free metrics move in the opposite direction to it.
 
 **It is free, and it dominates the window intervention.**
@@ -948,7 +961,7 @@ Ordered by expected value per unit of effort, with the cheap and decisive ones f
 
 **Cheap, and directly follows from a bracketed result**
 
-- **Tune the accumulation kernel.** Section 7.14 tried exactly one shape, a Gaussian at σ = w/4, chosen a priori and never swept — and it is already the largest single effect in the project. The width is a free parameter with an obvious tension (too wide reproduces uniform smearing, too narrow discards the window's genuine spatial extent), and triangular, Epanechnikov and learned kernels are all one line away. This is the cheapest remaining experiment in the report and the one with the clearest expected return.
+- **Try kernel shapes other than Gaussian.** Section 7.14 swept the Gaussian's *width* and found an interior optimum at σ = w/4, with a detection-versus-delineation trade-off either side of it. What it did not vary is the shape: triangular, Epanechnikov and learned kernels are each one line away, and a learned one could in principle recover the per-scale weighting RQ6 needed and never got. Cheap, and the natural continuation of the largest effect in the report.
 - **Re-run the whole of Section 7 under the centre-weighted read-out.** Every ablation verdict in this report was measured through the uniform accumulation, which Section 7.14 shows is not neutral — it cost +0.145 Dice at the baseline alone. Arms that interact differently with it could be ranked backwards, exactly as they were by Otsu. Nothing needs retraining: the frozen checkpoints and the existing evaluation scripts already support `--weighting gaussian`. This is the same shape of check as Section 7.12, and it is the one most likely to change a verdict.
 - **Pin down the window-size optimum, per region, at fixed stride.** Section 7.13 shows the receptive-field effect is small, non-monotonic and reverses by 8³, so the remaining question is narrow: where between 32³ and 12³ does it actually peak when sampling density is held constant? A denser stride-4 sweep (24³, 20³, 14³) answers it in a few GPU-hours.
 
@@ -984,7 +997,7 @@ This was an individual project; all design decisions, code, experiments, and wri
 
 **Where the time actually went, versus where I expected.** I expected the bulk of the effort to be in getting a model to work. It was not — the baseline trained on essentially the first serious attempt. The real cost was in *checking* results, and the checks were where the project's actual content came from. Six conclusions I had already written up as findings did not survive their own follow-up test (Section 8), and the one that hurt most — discovering that this project's apparent best intervention won only under the threshold I had standardized on — arrived late enough that it required rewriting the report's conclusion rather than just adding a caveat. If I ran this project again I would build the diagnostic layer first and the model second (Section 10).
 
-**Scale of the finished work.** 62 Python files totalling 11,006 lines, 45 SLURM batch scripts driving 120 cluster jobs and 34.2 GPU-hours, 62 per-patient result tables, 171 paired significance tests, and 41 figures — every one of which regenerates from the result CSVs and training logs, so no number in this report was transcribed by hand. A companion document, `work_log.pdf`, walks through all seventeen experiments in the order they happened and names the script that produced every number.
+**Scale of the finished work.** 62 Python files totalling 11,113 lines, 45 SLURM batch scripts driving 120 cluster jobs and 34.2 GPU-hours, 62 per-patient result tables, 171 paired significance tests, and 41 figures — every one of which regenerates from the result CSVs and training logs, so no number in this report was transcribed by hand. A companion document, `work_log.pdf`, walks through all seventeen experiments in the order they happened and names the script that produced every number.
 
 ## Appendix A — Statistical detail
 
@@ -1004,7 +1017,7 @@ Everything in this appendix is recomputed by `analyze_full_family.py` and `analy
 
 | Category | Count | Notes |
 |---|---|---|
-| Python files | 62 (11,006 lines) | See `src/README.md` for a file-by-file listing with line counts |
+| Python files | 62 (11,113 lines) | See `src/README.md` for a file-by-file listing with line counts |
 | — data pipeline | 4 | `preprocess.py`, `text_encoder.py`, two text-variant builders |
 | — datasets and model | 6 | Four patch samplers, `model.py`, `localize.py` |
 | — training | 7 | One per arm, each taking `--seed` |
