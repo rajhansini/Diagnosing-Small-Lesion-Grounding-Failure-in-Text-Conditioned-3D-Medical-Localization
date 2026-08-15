@@ -19,10 +19,10 @@ It is organised as:
 | **3** | The machinery: data, model, localization, metrics (with the code that does each) |
 | **4** | All seventeen experiments, in chronological order |
 | **5** | The eight conclusions we had to reverse, and how each was caught |
-| **6** | Complete inventory: 62 scripts, 120 cluster jobs, 62 result files, 41 figures |
+| **6** | Complete inventory: 62 scripts, 120 cluster jobs, 67 result files, 41 figures |
 | **7** | How to reproduce everything |
 
-**Scale of the work:** 62 Python files (11,113 lines), 45 cluster job scripts, **120 SLURM jobs totalling 34.2 GPU-hours**, 62 per-patient result tables, 171 statistical tests, 41 figures.
+**Scale of the work:** 62 Python files (11,170 lines), 45 cluster job scripts, **120 SLURM jobs totalling 34.2 GPU-hours**, 67 per-patient result tables, 171 statistical tests, 41 figures.
 
 \newpage
 
@@ -713,7 +713,7 @@ Also: **a single control is not a verdict.** Version 2 above *was* a control, an
 
 # Part 6 — Complete inventory
 
-## 6.1 Every Python file (62 files, 11,113 lines)
+## 6.1 Every Python file (62 files, 11,170 lines)
 
 **Data pipeline**
 
@@ -793,7 +793,7 @@ Every figure regenerates from the result CSVs and training logs; none was drawn 
 
 ![All 171 paired significance tests in one panel.](figures/fig_significance_heatmap.png){width=98%}
 
-## 6.4 Result files (62 CSVs)
+## 6.4 Result files (67 CSVs)
 
 One row per (patient, region) with Dice, IoU, size bin and true volume. Naming: `<experiment>_localization_scores.csv` for seed 0; `_seed1`/`_seed2` for replications. The RQ11/RQ12/RQ13 files add a `threshold_method` column (five rows per patient) plus pointing-game columns. `full_family_statistics.csv` is the derived table of all 171 tests.
 
@@ -831,7 +831,7 @@ One row per (patient, region) with Dice, IoU, size bin and true volume. Naming: 
 
 # Closing summary
 
-**What was built.** A complete text-conditioned 3D localization pipeline: preprocessing, contrastive alignment, sliding-window localization, five binarization rules, three localization metrics, and a twelve-tool diagnostic layer — 62 files, 11,113 lines, 120 cluster jobs, 41 figures.
+**What was built.** A complete text-conditioned 3D localization pipeline: preprocessing, contrastive alignment, sliding-window localization, five binarization rules, three localization metrics, and a twelve-tool diagnostic layer — 62 files, 11,170 lines, 120 cluster jobs, 41 figures.
 
 **What was found.**
 

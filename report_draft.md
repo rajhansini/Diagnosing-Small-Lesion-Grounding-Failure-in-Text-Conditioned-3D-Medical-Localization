@@ -738,6 +738,8 @@ Per region, though, the pooled columns hide real structure, and the sign disagre
 
 Three of nine region-level verdicts change sign between the published binarizer and the deployable one, and they are not the same three the pooled table would predict: RQ4 and RQ6 both go from losing to *winning* on tumor core once the threshold is calibrated. Neither arm comes close to the baseline overall, so this changes no headline — but it does mean the honest statement is "worse overall, and specifically not worse on tumor core", not "worse everywhere". The additional generalization is that pooling and thresholding are two separate ways to lose regional structure, and this project's protocol was doing both at once.
 
+> **Read this section together with Section 7.14.** Everything below is scored under the uniform accumulation rule, which Section 7.14 shows is not neutral either — it is worth more at the baseline (+0.145 Dice) than the binarizer ever was. Re-scoring these same three arms under the centre-weighted read-out flips four of fifteen verdicts, including RQ2's last surviving positive, which becomes a significant *loss*. The threshold question this section asks turns out to have an exact analogue one stage earlier in the pipeline.
+
 **Why this matters beyond these three arms.** Three of the four interventions this project evaluated on Dice have now had their Otsu verdict change under a calibrated threshold: RQ3b/RQ3c (understated by 2-3×), the 8³/6³ tiling points (an artifact entirely), and RQ2 (an artifact entirely). The one that did not change is the pair of clearly-negative arms. That pattern is itself informative — a miscalibrated binarizer distorts the ranking of *close* comparisons while leaving large effects intact, which is exactly the regime where careful ablation work lives.
 
 ### 7.13 RQ14: Was it the window, or the number of windows?
@@ -826,6 +828,26 @@ At **w/2** the kernel is wide enough to approach uniform smearing again, and the
 Both Dice rules peak at w/4; both threshold-free measures peak at or just below it. That is a genuine trade-off rather than a curve with one summit: **the width that best draws the lesion is not quite the width that best finds it**, and a system that cares about detection rather than delineation should use a narrower kernel than the one this section reports.
 
 **Otsu moves the other way, for the third time.** Centre-weighting makes the heatmap smooth and high-entropy, which is precisely the histogram shape Otsu's between-class-variance criterion handles worst — so the rule that rewarded the blockiest heatmap in Section 7.11's tiling comparison also penalises the sharpest one here, by −0.066. Every calibrated rule and both threshold-free metrics move in the opposite direction to it.
+
+**Every ablation verdict in this report was measured through the rule this section just discredited.** Section 7.12 asked whether the retrained arms' verdicts depended on the binarizer, and found RQ2's did. The same question has to be asked one stage earlier, because the accumulation rule is worth more at the baseline (+0.145) than the binarizer ever was. We therefore re-scored RQ2, RQ4 and RQ6 under the centre-weighted read-out, moving *both* sides of each comparison: an arm scored this way belongs against a baseline scored the same way.
+
+| Arm | rule | uniform Δ | centre-weighted Δ | |
+|---|---|---|---|---|
+| RQ2 | Otsu | +0.0227 | +0.0007 | |
+| **RQ2** | **top 1%** | **+0.0055** | **−0.0370** | **sign flip**, p=8.7×10⁻¹⁰ |
+| RQ2 | oracle | +0.0003 | −0.0138 | sign flip (n.s., p=0.097) |
+| **RQ4** | **Otsu** | **−0.0376** | **+0.0361** | **sign flip**, p=1.1×10⁻³⁶ |
+| RQ4 | top 1% | −0.0316 | −0.1025 | |
+| **RQ6** | **Otsu** | **−0.0231** | **+0.0440** | **sign flip**, p=1.1×10⁻³⁶ |
+| RQ6 | top 1% | −0.0599 | −0.1405 | |
+
+**Four of the fifteen arm × rule verdicts change sign**, and the two patterns are different findings.
+
+**RQ2's last surviving positive is gone.** Section 7.12 had already reduced its Otsu gain to nothing under the calibrated rules (+0.006, not significant). Under a read-out that stops discarding resolution it becomes −0.0370 at p=9×10⁻¹⁰: size-conditioned prompting does not merely fail to help, it measurably *hurts*. That is the third and final revision of RQ2, and the direction has been consistent at every step — each better instrument has made it look worse.
+
+**RQ4 and RQ6 now beat the baseline under Otsu, and lose by three to four times as much under every calibrated rule.** This is the Section 7.11 sign disagreement for a third time, on a third axis. The widening gap has a mechanism rather than being noise: both arms build their heatmap by a voxel-wise maximum over three queries, and a maximum over several maps already breaks up the block structure, so they had *less* resolution left for the centre-weighted read-out to recover than the single-query baseline had. The fix helps the baseline more than it helps them, which is why the gap grows rather than shrinking.
+
+The generalisation is the sharpest form of this report's recurring lesson: **a non-neutral instrument does not merely add noise to a comparison — it can reverse it, and it reverses it differently for arms that interact with it differently.** Otsu did this in Section 7.11, the stride coupling in Section 7.13, and the accumulation rule here. In all three cases every arm shared the choice, which is exactly what made it invisible.
 
 **It is free, and it dominates the window intervention.**
 
@@ -962,7 +984,7 @@ Ordered by expected value per unit of effort, with the cheap and decisive ones f
 **Cheap, and directly follows from a bracketed result**
 
 - **Try kernel shapes other than Gaussian.** Section 7.14 swept the Gaussian's *width* and found an interior optimum at σ = w/4, with a detection-versus-delineation trade-off either side of it. What it did not vary is the shape: triangular, Epanechnikov and learned kernels are each one line away, and a learned one could in principle recover the per-scale weighting RQ6 needed and never got. Cheap, and the natural continuation of the largest effect in the report.
-- **Re-run the whole of Section 7 under the centre-weighted read-out.** Every ablation verdict in this report was measured through the uniform accumulation, which Section 7.14 shows is not neutral — it cost +0.145 Dice at the baseline alone. Arms that interact differently with it could be ranked backwards, exactly as they were by Otsu. Nothing needs retraining: the frozen checkpoints and the existing evaluation scripts already support `--weighting gaussian`. This is the same shape of check as Section 7.12, and it is the one most likely to change a verdict.
+- **Finish re-running Section 7 under the centre-weighted read-out.** Section 7.14 does this for the three retrained arms and four of fifteen verdicts change sign, so the exercise is not hypothetical. What remains are the inference-side arms — RQ3's multi-scale ensemble and the RQ3b/RQ3c window points — which need the same treatment and, being ensembles over several maps, are the ones most likely to respond differently again. Nothing needs retraining: the frozen checkpoints and the existing evaluation scripts already support `--weighting gaussian`, and Section 7.14's re-scoring is the template.
 - **Pin down the window-size optimum, per region, at fixed stride.** Section 7.13 shows the receptive-field effect is small, non-monotonic and reverses by 8³, so the remaining question is narrow: where between 32³ and 12³ does it actually peak when sampling density is held constant? A denser stride-4 sweep (24³, 20³, 14³) answers it in a few GPU-hours.
 
 **Cheap, and tests whether the central negative result is fixable at all**
@@ -997,7 +1019,7 @@ This was an individual project; all design decisions, code, experiments, and wri
 
 **Where the time actually went, versus where I expected.** I expected the bulk of the effort to be in getting a model to work. It was not — the baseline trained on essentially the first serious attempt. The real cost was in *checking* results, and the checks were where the project's actual content came from. Six conclusions I had already written up as findings did not survive their own follow-up test (Section 8), and the one that hurt most — discovering that this project's apparent best intervention won only under the threshold I had standardized on — arrived late enough that it required rewriting the report's conclusion rather than just adding a caveat. If I ran this project again I would build the diagnostic layer first and the model second (Section 10).
 
-**Scale of the finished work.** 62 Python files totalling 11,113 lines, 45 SLURM batch scripts driving 120 cluster jobs and 34.2 GPU-hours, 62 per-patient result tables, 171 paired significance tests, and 41 figures — every one of which regenerates from the result CSVs and training logs, so no number in this report was transcribed by hand. A companion document, `work_log.pdf`, walks through all seventeen experiments in the order they happened and names the script that produced every number.
+**Scale of the finished work.** 62 Python files totalling 11,170 lines, 45 SLURM batch scripts driving 120 cluster jobs and 34.2 GPU-hours, 67 per-patient result tables, 171 paired significance tests, and 41 figures — every one of which regenerates from the result CSVs and training logs, so no number in this report was transcribed by hand. A companion document, `work_log.pdf`, walks through all seventeen experiments in the order they happened and names the script that produced every number.
 
 ## Appendix A — Statistical detail
 
@@ -1017,7 +1039,7 @@ Everything in this appendix is recomputed by `analyze_full_family.py` and `analy
 
 | Category | Count | Notes |
 |---|---|---|
-| Python files | 62 (11,113 lines) | See `src/README.md` for a file-by-file listing with line counts |
+| Python files | 62 (11,170 lines) | See `src/README.md` for a file-by-file listing with line counts |
 | — data pipeline | 4 | `preprocess.py`, `text_encoder.py`, two text-variant builders |
 | — datasets and model | 6 | Four patch samplers, `model.py`, `localize.py` |
 | — training | 7 | One per arm, each taking `--seed` |
@@ -1027,7 +1049,7 @@ Everything in this appendix is recomputed by `analyze_full_family.py` and `analy
 | — figures | 14 | Draw all 41 figures from CSVs and logs |
 | SLURM scripts | 45 | Including 11 `smoke_test_*.sbatch` for the 10-minute `dev` partition |
 | Cluster jobs | 120 | 34.2 GPU-hours, almost all on one RTX 2080 Ti |
-| Result tables | 62 CSVs | One row per (patient, region); RQ11/12/13 add a `threshold_method` column, and the RQ14 factorial adds `stride` and `weighting` |
+| Result tables | 67 CSVs | One row per (patient, region); RQ11/12/13 add a `threshold_method` column, and the RQ14 factorial adds `stride` and `weighting` |
 | Statistical tests | 171 | All paired, all BH-corrected across the accumulated family |
 | Figures | 41 | 29 in the main narrative, 9 added in the appendix pass, 3 for RQ14/RQ15 |
 | Trained checkpoints | 52 | Baseline ×3 seeds (last only), four ablations ×3 seeds ×2 checkpoints, RQ7 ×4 conditions ×3 seeds ×2 checkpoints, P′ |

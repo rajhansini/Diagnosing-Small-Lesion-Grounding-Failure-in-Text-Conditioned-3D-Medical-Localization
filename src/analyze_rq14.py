@@ -265,6 +265,62 @@ def block_kernel_width():
     print("    the width that best finds it.")
 
 
+def arm(name, weighting="uniform"):
+    """Read one retrained arm's re-scored table under a given accumulation rule."""
+    tag = "" if weighting == "uniform" else f"_{weighting}"
+    path = os.path.join(RESULTS, f"rq13_{name}_thresholds{tag}_scores.csv")
+    if not os.path.exists(path):
+        return None
+    with open(path, newline="") as fh:
+        return list(csv.DictReader(fh))
+
+
+def block_arms_reread():
+    """Do the Section 7.12 verdicts survive the read-out, as they had to survive the binarizer?
+
+    Section 7.12 asked whether the retrained arms' verdicts depended on the binarizer and found that
+    RQ2's did. RQ15 then showed the accumulation rule is not neutral either -- and every verdict in
+    Section 7 was measured through the uniform one. The same question therefore has to be asked
+    again one stage earlier in the pipeline, and both sides of each comparison have to move: an arm
+    scored under the centre-weighted read-out belongs against a baseline scored the same way.
+    """
+    header("[H] THE RETRAINED ARMS UNDER THE NEW READ-OUT -- Section 7.12's question, one stage up")
+    base_u, base_g = load(32, 16), load(32, 16, "gaussian")
+    if base_g is None:
+        print("    gaussian baseline not run")
+        return
+    print(f"    {'arm':<6}{'rule':<16}{'uniform':>10}{'gaussian':>11}   verdict")
+    flips = []
+    for name in ["rq2", "rq4", "rq6"]:
+        au, ag = arm(name), arm(name, "gaussian")
+        if au is None or ag is None:
+            print(f"    {name.upper():<6}(not run)")
+            continue
+        for method in RULES:
+            du, _, _ = compare(base_u, au, method)
+            dg, pg, _ = compare(base_g, ag, method)
+            flip = (du > 0) != (dg > 0)
+            if flip:
+                flips.append((name, method, du, dg, pg))
+            print(f"    {name.upper():<6}{method:<16}{du:>+10.4f}{dg:>+11.4f}   "
+                  f"{'SIGN FLIP' if flip else ''}")
+        print()
+    print(f"    {len(flips)} of 15 arm x rule verdicts change sign when the read-out changes:")
+    for name, method, du, dg, pg in flips:
+        print(f"      {name.upper():<5}{method:<16}{du:+.4f} -> {dg:+.4f}   p={pg:.1e}")
+    print()
+    print("    Two patterns, and the second is the mechanism. First, RQ2's last surviving positive")
+    print("    is gone: under the deployable top-1% rule it moves from +0.0055 (not significant) to")
+    print("    -0.0370 at p=9e-10, so size-conditioned prompting does not merely fail to help, it")
+    print("    measurably hurts once the read-out stops discarding resolution. Second, RQ4 and RQ6")
+    print("    now *beat* the baseline under Otsu and lose to it by three to four times as much as")
+    print("    before under every calibrated rule. That is the Section 7.11 disagreement again, on a")
+    print("    third axis -- and the widening gap has a cause: these arms build their heatmap by a")
+    print("    voxel-wise maximum over three queries, which already breaks up the block structure,")
+    print("    so they had less resolution left for the centre-weighted read-out to recover than the")
+    print("    single-query baseline did. The fix helps the baseline more than it helps them.")
+
+
 def block_cost():
     """What the two interventions cost, against what they buy."""
     header("[F] COST -- the read-out fix is free, the sampling fix is not")
@@ -295,6 +351,7 @@ def main():
     block_accumulation()
     block_accumulation_regions()
     block_kernel_width()
+    block_arms_reread()
     block_cost()
     print("\nDone.")
 
