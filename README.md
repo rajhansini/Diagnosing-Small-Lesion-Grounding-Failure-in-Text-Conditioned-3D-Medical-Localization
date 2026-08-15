@@ -29,11 +29,11 @@ Four measurement controls sit underneath every claim: a **chance-level random-he
 - [`report_draft.pdf`](report_draft.pdf) — the final report, written as a short research paper (54 pp).
 - [`work_log.pdf`](work_log.pdf) — a complete companion account: every one of the seventeen experiments in the order they happened, every script that produced every number, and a plain-language primer that assumes no background in medical imaging, contrastive learning or the statistics used. Also documents the eight conclusions this project had to reverse, and how each was caught.
 
-Between them the two documents carry all 38 figures; [`figures/README.md`](figures/README.md) maps each one to the claim it supports and the script that draws it.
+Between them the two documents carry all 41 figures; [`figures/README.md`](figures/README.md) maps each one to the claim it supports and the script that draws it.
 
 ## Repository layout
 
-- `src/` — all code (61 files, 10,641 lines). See [`src/README.md`](src/README.md) for a file-by-file breakdown with line counts.
+- `src/` — all code (62 files, 11,006 lines). See [`src/README.md`](src/README.md) for a file-by-file breakdown with line counts.
 - `slurm/` — SLURM batch scripts for every training and evaluation job. See [`slurm/README.md`](slurm/README.md).
 - `results/` — per-patient CSV outputs from every evaluation run. See [`results/README.md`](results/README.md) for the schema.
 - `figures/` — generated report figures. See [`figures/README.md`](figures/README.md).
@@ -48,7 +48,7 @@ Not included in this repo (see below for how to regenerate):
 ## Reproducing this project
 
 > **Paths are absolute to the cluster this ran on.** Every script resolves its inputs and outputs
-> under `/net/projects/ranalab/rajhansini/nlp_project` — 52 of the 61 files in `src/` contain that
+> under `/net/projects/ranalab/rajhansini/nlp_project` — 53 of the 62 files in `src/` contain that
 > prefix, as do the `slurm/*.sbatch` job scripts. This was a research pipeline run in one place, not
 > a portable package. To run it elsewhere, replace that prefix with your own checkout path
 > (`grep -rl '/net/projects/ranalab/rajhansini/nlp_project' src/ slurm/` finds every occurrence);
@@ -62,7 +62,7 @@ Not included in this repo (see below for how to regenerate):
 6. **Run the P′ check**: `python src/train_pprime_supervised.py` then `python src/evaluate_pprime_supervised.py` — validates the shared pipeline against published BraTS Dice before any result downstream is trusted.
 7. **Run RQ1 through RQ12**: see the corresponding `train_rqN.py` / `evaluate_rqN.py` scripts and their matching `slurm/*.sbatch` files. Smoke-test each on the `dev` partition first (`slurm/smoke_test_*.sbatch`).
 8. **Statistical analysis**: `python src/analyze_full_family.py` reproduces all 171 paired significance tests with BH-FDR correction under both pooled and per-RQ families. `analyze_seed_replication.py` and `analyze_rq7_multiseed.py` do the cross-run replication checks; `analyze_rq11.py` and `analyze_rq12.py` the threshold and grounding decompositions; `analyze_appendix.py` the eight blocks in the report's Appendix A (IoU, effect sizes, both BH families, checkpoint sensitivity, pointing-rule bounds, Otsu's selected fraction, per-region window optima, and inference cost).
-9. **Figures**: `python src/make_figures.py`, then `make_figure4_scale_comparison.py`, `make_overlay_figure.py`, `make_figure5_window_curve.py`, `make_figure_architecture.py`, `make_figure_leaderboard.py`, `make_figure_roadmap.py`, `make_figure_significance_heatmap.py`, `make_figures_dataset_and_evidence.py`, `make_figures_rq7_rq8_rq12.py`, and `make_figures_supplementary.py` / `make_figures_appendix.py` last (they read the RQ11/RQ12/RQ13 CSVs, the training logs and the preprocessed masks). All 38 figures regenerate from `results/`, `logs/` and `data/preprocessed/`; none is drawn by hand.
+9. **Figures**: `python src/make_figures.py`, then `make_figure4_scale_comparison.py`, `make_overlay_figure.py`, `make_figure5_window_curve.py`, `make_figure_architecture.py`, `make_figure_leaderboard.py`, `make_figure_roadmap.py`, `make_figure_significance_heatmap.py`, `make_figures_dataset_and_evidence.py`, `make_figures_rq7_rq8_rq12.py`, and `make_figures_supplementary.py` / `make_figures_appendix.py` / `make_figures_rq14.py` last (they read the RQ11/RQ12/RQ13/RQ14 CSVs, the training logs and the preprocessed masks). All 41 figures regenerate from `results/`, `logs/` and `data/preprocessed/`; none is drawn by hand.
 10. **Build the report**: `pandoc report_draft.md -o report_draft.pdf --pdf-engine=xelatex -V geometry:margin=1in -V fontsize=10pt -V mainfont="DejaVu Serif" -V monofont="DejaVu Sans Mono" --toc` (DejaVu is needed for the Unicode maths and Greek in the text).
 
 ## Attribution

@@ -1,12 +1,12 @@
 # `figures/` — generated report figures
 
-All 38 images here are regenerated from the per-patient CSVs in [`../results/`](../results/), the
+All 41 images here are regenerated from the per-patient CSVs in [`../results/`](../results/), the
 training logs in [`../logs/`](../logs/) and (for two panels) the preprocessed masks, by one of
-thirteen figure scripts in [`../src/`](../src/). None was drawn or edited by hand, so a figure and
+fourteen figure scripts in [`../src/`](../src/). None was drawn or edited by hand, so a figure and
 the corresponding table in the report cannot drift apart.
 
 This directory contains images, not source code, so there are no line counts to report here; the
-per-file line counts for the thirteen scripts that draw these figures are in
+per-file line counts for the fourteen scripts that draw these figures are in
 [`../src/README.md`](../src/README.md).
 
 Colours follow the Okabe-Ito colourblind-safe palette throughout, verified computationally (all pairs
@@ -80,6 +80,16 @@ statistics as text.
 | `fig_otsu_selected_fraction.png` | What each rule actually selects across the sweep. Only Otsu's fraction moves, which is the sign disagreement measured rather than argued. | §7.11 |
 | `fig_window_curve_per_region.png` | The pooled 12³–16³ optimum split into three regions that want three different windows. | §7.11 |
 | `fig_cost_benefit.png` | Forward passes per volume against the Dice each window buys, with the recommended operating point marked. | §7.11 |
+
+## What the window result was measuring, and what the read-out discarded
+
+All three from `make_figures_rq14.py`; `analyze_rq14.py` prints the same statistics as text.
+
+| File | The claim it carries | Report section |
+|---|---|---|
+| `fig_rq14_factorial.png` | The two paths out of the published protocol that the original sweep never separated, and the decomposition: sampling density is worth more on its own (+0.0761) than the whole effect credited to window size (+0.0724). | §7.13 |
+| `fig_rq14_pointing_grid.png` | Where the two mechanisms come apart. Sampling more finely lifts every region, but small enhancing tumor is zero at every 32³ condition whatever the stride and moves only when the window shrinks. | §7.13 |
+| `fig_rq15_accumulation.png` | Uniform against centre-weighted accumulation: every calibrated rule improves and Otsu alone falls, the tied plateau collapses from 4,096 voxels to 1, and the free read-out fix beats the best densely-sampled cell at 71× fewer forward passes. | §7.14 |
 
 ## Cached intermediates
 

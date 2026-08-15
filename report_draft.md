@@ -120,7 +120,7 @@ All code was written for this project; see [`src/README.md`](src/README.md) for 
 | **Evaluation** | `evaluate_rq1.py` and 14 siblings | `evaluate_rq1.py` defines `otsu_threshold()`, `dice_iou()` and `size_bin()`, which every other evaluation — including the supervised P′ — imports, so all arms are scored by literally the same code. |
 | **Diagnostics** | `test_rq4_shortcut_hypothesis.py`, `test_rq6_hub_bias.py`, `compute_chance_baseline.py`, `sanity_check_localize.py` | Noise probes, chance-level control, and the pre-flight check that the heatmap scores higher inside the true region than outside. |
 | **Analysis** | `analyze_full_family.py`, `analyze_seed_replication.py`, `analyze_rq7_multiseed.py`, `analyze_appendix.py`, `analyze_rq14.py`, and 7 others | Recompute every statistic directly from the saved per-patient CSVs, so no number in this report is transcribed by hand. |
-| **Figures** | 13 figure scripts | All 38 figures regenerate from the result CSVs and training logs; none is drawn by hand. |
+| **Figures** | 14 figure scripts | All 41 figures regenerate from the result CSVs and training logs; none is drawn by hand. |
 
 Two recurring design decisions are worth naming. First, **evaluation scripts import their metric definitions rather than redefining them**, which is what makes cross-experiment comparison meaningful. Second, **several scripts carry a built-in correctness gate**: `evaluate_rq8_compositionality.py` asserts its "original" condition reproduces RQ1's CSV exactly, and `evaluate_grounding_sweep.py` at window 32 must reproduce RQ11's — both caught real bugs during development.
 
@@ -769,6 +769,8 @@ We therefore ran the factorial the original sweep never did: window varied with 
 | 32³/4 → 8³/4 | receptive field, stride fixed | −0.0162 | 0.0095 |
 | 32³/16 → 12³/6 | *the original confounded claim* | +0.0724 | 1.3×10⁻²⁰ |
 
+![Left: the two ways out of the published protocol that Section 7.11 never told apart. Grey is the original sweep, which changed window and stride together at every point; orange holds the window at 32³ and varies only the stride; blue holds the stride at 4 and varies only the window. Right: the decomposition. The sampling term alone is larger than the effect the original comparison credited entirely to window size.](figures/fig_rq14_factorial.png){width=100%}
+
 The sampling term on its own (+0.0761) is larger than the entire effect Section 7.11 attributed to window size (+0.0724). The receptive-field term survives, but it is about **four times smaller than reported**, it is non-monotonic — peaking at 16³ and reversing to a significant *loss* by 8³ — and at 12³ it does not clear significance at all. Section 7.11's recommendation of "12³–16³" was therefore reading a sampling effect as an architectural one.
 
 **The architectural claim survives exactly where the paper needs it.** The pointing game separates the two mechanisms in a way Dice cannot:
@@ -780,6 +782,8 @@ The sampling term on its own (+0.0761) is larger than the entire effect Section 
 | TC | large | 16/23 | 21/23 | 22/23 | 19/23 | 9/23 | 5/23 |
 | WT | small | 17/32 | 17/32 | 20/32 | 28/32 | 26/32 | 26/32 |
 | | *pooled* | 0.423 | 0.526 | 0.573 | 0.610 | 0.559 | 0.484 |
+
+![Left: pointing hit rate per region across the grid; the shaded band holds the window at 32³ so only the stride changes. Sampling more finely lifts every region. Right: the small-ET bin alone, which is zero at every 32³ condition regardless of stride and moves only once the window shrinks — the one place in the grid where the receptive field, and not the window count, is what binds.](figures/fig_rq14_pointing_grid.png){width=100%}
 
 **Small enhancing tumor stays at 0 of 21 at every 32³ condition however finely the volume is sampled** — including stride 4, where the plateau is only 64 voxels. It moves only when the window itself shrinks. So Section 6.3's central finding is not a sampling artifact: it is the one place in the grid where the receptive field, and not the window count, is the binding constraint. The control that dissolves most of the Dice story leaves the paper's sharpest result standing.
 
@@ -801,6 +805,8 @@ At the original published 32³/stride-16 protocol:
 | pooled pointing | 0.423 | **0.676** | | |
 | median plateau | 4,096 | **1** | | |
 | **ET-small hits** | **0/21** | **7/21** | | |
+
+![Left: every binarization rule at the published protocol under both accumulation rules — each calibrated rule improves and Otsu alone falls, for the third time in this report. Centre: the tied-maximum plateau, on a log axis, collapsing from 4,096 voxels to 1, with the bin it was blocking. Right: what each configuration costs. The centre-weighted read-out at the original window and stride beats the best densely-sampled uniform cell while doing 71× fewer forward passes.](figures/fig_rq15_accumulation.png){width=100%}
 
 **The plateau collapses from 4,096 voxels to 1, and the bin that defined this project's failure goes from 0 of 21 to 7 of 21.** Per region and bin, oracle Dice improves in all nine cells (+0.10 to +0.20), and pointing improves in seven of nine.
 
@@ -978,7 +984,7 @@ This was an individual project; all design decisions, code, experiments, and wri
 
 **Where the time actually went, versus where I expected.** I expected the bulk of the effort to be in getting a model to work. It was not — the baseline trained on essentially the first serious attempt. The real cost was in *checking* results, and the checks were where the project's actual content came from. Six conclusions I had already written up as findings did not survive their own follow-up test (Section 8), and the one that hurt most — discovering that this project's apparent best intervention won only under the threshold I had standardized on — arrived late enough that it required rewriting the report's conclusion rather than just adding a caveat. If I ran this project again I would build the diagnostic layer first and the model second (Section 10).
 
-**Scale of the finished work.** 61 Python files totalling 10,641 lines, 45 SLURM batch scripts driving 120 cluster jobs and 34.2 GPU-hours, 62 per-patient result tables, 171 paired significance tests, and 38 figures — every one of which regenerates from the result CSVs and training logs, so no number in this report was transcribed by hand. A companion document, `work_log.pdf`, walks through all seventeen experiments in the order they happened and names the script that produced every number.
+**Scale of the finished work.** 62 Python files totalling 11,006 lines, 45 SLURM batch scripts driving 120 cluster jobs and 34.2 GPU-hours, 62 per-patient result tables, 171 paired significance tests, and 41 figures — every one of which regenerates from the result CSVs and training logs, so no number in this report was transcribed by hand. A companion document, `work_log.pdf`, walks through all seventeen experiments in the order they happened and names the script that produced every number.
 
 ## Appendix A — Statistical detail
 
@@ -998,19 +1004,19 @@ Everything in this appendix is recomputed by `analyze_full_family.py` and `analy
 
 | Category | Count | Notes |
 |---|---|---|
-| Python files | 61 (10,641 lines) | See `src/README.md` for a file-by-file listing with line counts |
+| Python files | 62 (11,006 lines) | See `src/README.md` for a file-by-file listing with line counts |
 | — data pipeline | 4 | `preprocess.py`, `text_encoder.py`, two text-variant builders |
 | — datasets and model | 6 | Four patch samplers, `model.py`, `localize.py` |
 | — training | 7 | One per arm, each taking `--seed` |
 | — evaluation | 15 | `evaluate_rq1.py` defines the metrics every other one imports |
 | — diagnostics | 4 | Noise probes, chance baseline, pre-flight localizer check |
 | — analysis | 12 | Recompute every reported statistic from the CSVs |
-| — figures | 13 | Draw all 38 figures from CSVs and logs |
+| — figures | 14 | Draw all 41 figures from CSVs and logs |
 | SLURM scripts | 45 | Including 11 `smoke_test_*.sbatch` for the 10-minute `dev` partition |
 | Cluster jobs | 120 | 34.2 GPU-hours, almost all on one RTX 2080 Ti |
 | Result tables | 62 CSVs | One row per (patient, region); RQ11/12/13 add a `threshold_method` column, and the RQ14 factorial adds `stride` and `weighting` |
 | Statistical tests | 171 | All paired, all BH-corrected across the accumulated family |
-| Figures | 38 | 29 in the main narrative, 9 added in the appendix pass |
+| Figures | 41 | 29 in the main narrative, 9 added in the appendix pass, 3 for RQ14/RQ15 |
 | Trained checkpoints | 52 | Baseline ×3 seeds (last only), four ablations ×3 seeds ×2 checkpoints, RQ7 ×4 conditions ×3 seeds ×2 checkpoints, P′ |
 
 **Built-in correctness gates.** Three evaluation scripts verify themselves against earlier results rather than being trusted: `evaluate_rq8_compositionality.py` requires its "original" condition to reproduce RQ1's CSV; `evaluate_grounding_sweep.py` at window 32/stride 16 must reproduce RQ11's (212 of 213 rows bit-identical, the exception differing by 5×10⁻⁴ Dice from a tie in Otsu's 256-bin histogram); `evaluate_ablation_thresholds.py` requires its re-scored Otsu column to reproduce each arm's published CSV (pooled difference below 3.5×10⁻⁵). Two of the three caught real bugs during development.

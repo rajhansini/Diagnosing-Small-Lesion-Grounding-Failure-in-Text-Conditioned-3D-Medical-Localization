@@ -2,7 +2,7 @@
 
 **Attribution.** Every file below was written by me for this project. None contains code copied from another project, another assignment, or a third-party codebase. Third-party libraries (PyTorch, MONAI, Hugging Face Transformers, scikit-image, SciPy, matplotlib) and the pretrained PubMedBERT weights are used through their public APIs and package installs; nothing is vendored into this repository.
 
-**Totals: 61 files, 10,641 lines.** Line counts below are `wc -l` including docstrings and comments.
+**Totals: 62 files, 11,006 lines.** Line counts below are `wc -l` including docstrings and comments.
 
 Run order for a full reproduction is documented in the [root README](../README.md).
 
@@ -102,6 +102,7 @@ Run order for a full reproduction is documented in the [root README](../README.m
 | `make_figures_dataset_and_evidence.py` | 466 | The two dataset figures (split composition, per-region volume distributions with tercile cutoffs) plus four evidence figures for claims that were previously tables only: Otsu's inverse calibration, the pointing game against chance, per-seed ablation replication, and the RQ4 shortcut noise probe. |
 | `make_figures_rq7_rq8_rq12.py` | 329 | The four late-experiment figures: the RQ12 threshold reversal, RQ7 per-seed deltas against the retraining noise floor, RQ8 heatmap correlations under query manipulation, and the P′ supervised-vs-text-conditioned size comparison. |
 | `make_figures_supplementary.py` | 885 | Nine further evidence figures, one per claim the report had previously stated only as a number: PubMedBERT's anisotropy before and after the trained projection (with every RQ7 condition placed on that axis), the chance-baseline lift, the five-binarizer threshold ladder, peak-to-lesion distance distributions, RQ3's naive multi-scale losses, classification accuracy against localization quality across all five training arms, RQ6's three-part uniformity verification, RQ8's embedding-displacement scatter, and RQ13's re-scoring of the retrained arms. Reads the training logs as well as the result CSVs. |
+| `make_figures_rq14.py` | 365 | Three figures for Sections 7.13 and 7.14: the window × stride factorial with the reported benefit decomposed into sampling density and receptive field; the pointing grid showing small enhancing tumor is the one thing sampling density cannot buy; and uniform against centre-weighted accumulation, with the plateau collapse and the cost comparison. |
 | `make_figures_appendix.py` | 769 | Nine figures for measurements that were computed and stored by the original runs but never looked at: Dice against IoU, the per-patient distributions behind every mean, all 171 tests by effect size against adjusted significance, the Benjamini-Hochberg step-up and a growing-family check, RQ7 at both saved checkpoints, the three pointing rules against a block-level chance baseline, what fraction of the volume each binarizer selects across the sweep, the window curve per region, and forward-pass cost against Dice. Reads the preprocessed masks as well as the result CSVs. |
 
 ---

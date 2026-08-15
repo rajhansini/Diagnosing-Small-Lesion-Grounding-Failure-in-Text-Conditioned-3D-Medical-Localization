@@ -19,10 +19,10 @@ It is organised as:
 | **3** | The machinery: data, model, localization, metrics (with the code that does each) |
 | **4** | All seventeen experiments, in chronological order |
 | **5** | The eight conclusions we had to reverse, and how each was caught |
-| **6** | Complete inventory: 60 scripts, 120 cluster jobs, 53 result files, 38 figures |
+| **6** | Complete inventory: 62 scripts, 120 cluster jobs, 62 result files, 41 figures |
 | **7** | How to reproduce everything |
 
-**Scale of the work:** 61 Python files (10,641 lines), 45 cluster job scripts, **120 SLURM jobs totalling 34.2 GPU-hours**, 62 per-patient result tables, 171 statistical tests, 38 figures.
+**Scale of the work:** 62 Python files (11,006 lines), 45 cluster job scripts, **120 SLURM jobs totalling 34.2 GPU-hours**, 62 per-patient result tables, 171 statistical tests, 41 figures.
 
 \newpage
 
@@ -713,7 +713,7 @@ Also: **a single control is not a verdict.** Version 2 above *was* a control, an
 
 # Part 6 — Complete inventory
 
-## 6.1 Every Python file (61 files, 10,641 lines)
+## 6.1 Every Python file (62 files, 11,006 lines)
 
 **Data pipeline**
 
@@ -822,7 +822,7 @@ One row per (patient, region) with Dice, IoU, size bin and true volume. Naming: 
 5. **Baseline** — `train_baseline.py` (add `--seed 1` / `--seed 2` for replications)
 6. **Experiments** — each `train_rqN.py` / `evaluate_rqN.py` with its matching `slurm/*.sbatch`. Smoke-test on `dev` first.
 7. **Statistics** — `analyze_full_family.py` reproduces all 171 tests with BH correction; `analyze_appendix.py` the eight blocks in Part 6.3's last table
-8. **Figures** — the thirteen figure scripts; `make_figures_supplementary.py` and `make_figures_appendix.py` last, since they read the RQ11/RQ12/RQ13 CSVs, the training logs and the preprocessed masks
+8. **Figures** — the fourteen figure scripts; `make_figures_supplementary.py` and `make_figures_appendix.py` last, since they read the RQ11/RQ12/RQ13 CSVs, the training logs and the preprocessed masks
 9. **Report** — `pandoc report_draft.md -o report_draft.pdf --pdf-engine=xelatex -V mainfont="DejaVu Serif" --toc`
 
 **Repository:** [github.com/rajhansini/Diagnosing-Small-Lesion-Grounding-Failure-in-Text-Conditioned-3D-Medical-Localization](https://github.com/rajhansini/Diagnosing-Small-Lesion-Grounding-Failure-in-Text-Conditioned-3D-Medical-Localization)
@@ -831,7 +831,7 @@ One row per (patient, region) with Dice, IoU, size bin and true volume. Naming: 
 
 # Closing summary
 
-**What was built.** A complete text-conditioned 3D localization pipeline: preprocessing, contrastive alignment, sliding-window localization, five binarization rules, three localization metrics, and a twelve-tool diagnostic layer — 61 files, 10,641 lines, 120 cluster jobs, 38 figures.
+**What was built.** A complete text-conditioned 3D localization pipeline: preprocessing, contrastive alignment, sliding-window localization, five binarization rules, three localization metrics, and a twelve-tool diagnostic layer — 62 files, 11,006 lines, 120 cluster jobs, 41 figures.
 
 **What was found.**
 
