@@ -140,6 +140,10 @@ def main():
                 rows.append({
                     "patient_id": pid, "region": region, "size_bin": bin_label,
                     "window_size": args.window_size,
+                    # Recorded as a column, not only in the filename: the window/stride factorial
+                    # varies stride at a fixed window, so two conditions can share a window size and
+                    # rows merged from both would otherwise be indistinguishable.
+                    "stride": args.stride,
                     "threshold_method": method,
                     "true_volume_mm3": true_vol,
                     "gt_voxels_resized": gt_voxels,
@@ -162,7 +166,7 @@ def main():
                   f"peak_hit={int(argmax_hit)} peak_dist={dist_mm:.1f}mm "
                   f"ties={n_tied} centroid_hit={int(centroid_hit)}", flush=True)
 
-    fieldnames = ["patient_id", "region", "size_bin", "window_size", "threshold_method",
+    fieldnames = ["patient_id", "region", "size_bin", "window_size", "stride", "threshold_method",
                   "true_volume_mm3", "gt_voxels_resized", "gt_volume_mm3_resized",
                   "pred_voxels", "pred_volume_mm3", "dice", "iou", "argmax_hit", "argmax_dist_mm",
                   "peak_tie_count", "centroid_hit", "centroid_dist_mm", "any_tied_hit"]
