@@ -4,28 +4,46 @@ import torch
 import torch.nn.functional as F
 
 
-def _gaussian_kernel(size, sigma_frac=0.25):
-    """Separable 3D Gaussian over a window, peaked at its centre, normalized to a maximum of 1.
+def _weight_kernel(size, shape="gaussian", sigma_frac=0.25):
+    """Separable 3D centre-peaked kernel over a window, normalized to a maximum of 1.
 
-    Used by the "gaussian" accumulation mode. The width scales with the window so the shape of the
-    weighting is the same at every window size, which is what makes conditions comparable.
+    Used by the centre-weighted accumulation modes. The width scales with the window in every shape,
+    so the weighting has the same form at each window size, which is what makes conditions
+    comparable. The three shapes differ in how sharply the weight falls away from the centre:
+
+      gaussian      smooth, infinite support truncated at the window edge; the RQ15 default.
+      triangular    linear falloff to zero at +/- 2*sigma; compact support, no tail at all.
+      epanechnikov  parabolic, the minimum-variance kernel in density estimation, between the two.
+
+    Comparing them separates "attributing a window's evidence toward its centre helps" from "this
+    particular bell curve helps", which the single-shape RQ15 result cannot distinguish.
 
     Args:
         size: window edge length in voxels.
-        sigma_frac: standard deviation as a fraction of the window edge.
+        shape: "gaussian", "triangular" or "epanechnikov".
+        sigma_frac: kernel scale as a fraction of the window edge.
 
     Returns:
         (size, size, size) float tensor.
     """
     coords = torch.arange(size, dtype=torch.float32) - (size - 1) / 2.0
-    g = torch.exp(-coords.pow(2) / (2.0 * (sigma_frac * size) ** 2))
+    s = sigma_frac * size
+    if shape == "gaussian":
+        g = torch.exp(-coords.pow(2) / (2.0 * s ** 2))
+    elif shape == "triangular":
+        g = torch.clamp(1.0 - coords.abs() / (2.0 * s), min=0.0)
+    elif shape == "epanechnikov":
+        u = coords / (2.0 * s)
+        g = torch.clamp(1.0 - u.pow(2), min=0.0)
+    else:
+        raise ValueError(f"unknown kernel shape {shape!r}")
     k = g[:, None, None] * g[None, :, None] * g[None, None, :]
     return k / k.max()
 
 
 def sliding_window_heatmap(model, volume, text_proj_vec, patch_size=32, stride=16, device="cpu",
                             batch_size=64, window_size=None, model_input_size=32,
-                            weighting="uniform", sigma_frac=0.25):
+                            weighting="uniform", sigma_frac=0.25, kernel_shape="gaussian"):
     """Sweep the trained patch encoder across a volume and accumulate per-voxel query similarity.
 
     This replaced Grad-CAM, which is unusable here: the encoder global-average-pools each patch to a
@@ -59,6 +77,8 @@ def sliding_window_heatmap(model, volume, text_proj_vec, patch_size=32, stride=1
             window edge. Scaling with the window rather than fixing it in voxels keeps the shape of
             the weighting identical at every window size, which is what makes conditions comparable.
             Too wide approaches uniform smearing; too narrow discards the window's real extent.
+        kernel_shape: which centre-peaked shape to use when weighting is "gaussian" --
+            "gaussian", "triangular" or "epanechnikov". See _weight_kernel.
 
     Returns:
         (D, H, W) float tensor of averaged cosine similarities to the query.
@@ -67,7 +87,8 @@ def sliding_window_heatmap(model, volume, text_proj_vec, patch_size=32, stride=1
         window_size = patch_size
     if weighting not in ("uniform", "gaussian"):
         raise ValueError(f"unknown weighting {weighting!r}; expected 'uniform' or 'gaussian'")
-    kernel = _gaussian_kernel(window_size, sigma_frac) if weighting == "gaussian" else None
+    kernel = (_weight_kernel(window_size, kernel_shape, sigma_frac)
+              if weighting == "gaussian" else None)
     D, H, W = volume.shape[1:]
     heatmap = torch.zeros(D, H, W)
     counts = torch.zeros(D, H, W)

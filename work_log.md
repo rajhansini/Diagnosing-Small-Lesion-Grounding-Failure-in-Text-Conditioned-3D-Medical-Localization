@@ -22,7 +22,7 @@ It is organised as:
 | **6** | Complete inventory: 62 scripts, 120 cluster jobs, 67 result files, 41 figures |
 | **7** | How to reproduce everything |
 
-**Scale of the work:** 62 Python files (11,170 lines), 45 cluster job scripts, **120 SLURM jobs totalling 34.2 GPU-hours**, 67 per-patient result tables, 171 statistical tests, 41 figures.
+**Scale of the work:** 62 Python files (11,242 lines), 45 cluster job scripts, **120 SLURM jobs totalling 34.2 GPU-hours**, 67 per-patient result tables, 171 statistical tests, 41 figures.
 
 \newpage
 
@@ -713,7 +713,7 @@ Also: **a single control is not a verdict.** Version 2 above *was* a control, an
 
 # Part 6 — Complete inventory
 
-## 6.1 Every Python file (62 files, 11,170 lines)
+## 6.1 Every Python file (62 files, 11,242 lines)
 
 **Data pipeline**
 
@@ -721,7 +721,7 @@ Also: **a single control is not a verdict.** Version 2 above *was* a control, an
 |---|---|---|
 | `preprocess.py` | 190 | NIfTI loading, brain-mask z-scoring, resize to 128³, native-resolution lesion volumes |
 | `text_encoder.py` | 204 | PubMedBERT wrapper; all three text variants |
-| `build_rq7_text_variants.py` | 166 | The four encoder-ablation conditions |
+| `build_rq7_text_variants.py` | 204 | The four encoder-ablation conditions |
 | `build_rq8_probe_texts.py` | 181 | The five compositionality probes |
 
 **Datasets and model**
@@ -733,7 +733,7 @@ Also: **a single control is not a verdict.** Version 2 above *was* a control, an
 | `dataset_rq4.py` | 90 | Scale-matched patches (16/32/64 → 32) |
 | `dataset_pprime.py` | 105 | Full-volume dense-label loader for P′ |
 | `model.py` | 51 | `TextVolumeAligner` |
-| `localize.py` | 113 | `sliding_window_heatmap()` |
+| `localize.py` | 134 | `sliding_window_heatmap()` |
 
 **Training (7 files)** — `train_baseline.py` (118), `train_rq2.py` (128), `train_rq4.py` (128), `train_rq5.py` (128), `train_rq6.py` (146), `train_rq7.py` (152), `train_pprime_supervised.py` (195)
 
@@ -831,7 +831,7 @@ One row per (patient, region) with Dice, IoU, size bin and true volume. Naming: 
 
 # Closing summary
 
-**What was built.** A complete text-conditioned 3D localization pipeline: preprocessing, contrastive alignment, sliding-window localization, five binarization rules, three localization metrics, and a twelve-tool diagnostic layer — 62 files, 11,170 lines, 120 cluster jobs, 41 figures.
+**What was built.** A complete text-conditioned 3D localization pipeline: preprocessing, contrastive alignment, sliding-window localization, five binarization rules, three localization metrics, and a twelve-tool diagnostic layer — 62 files, 11,242 lines, 120 cluster jobs, 41 figures.
 
 **What was found.**
 

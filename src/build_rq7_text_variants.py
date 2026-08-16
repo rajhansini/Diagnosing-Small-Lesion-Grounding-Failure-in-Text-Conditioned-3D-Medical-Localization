@@ -124,6 +124,43 @@ def build_randvec_aniso(pubmedbert, target_norms):
     return rescale_to(embeddings, target_norms)
 
 
+def build_whitened(pubmedbert, target_norms):
+    """PubMedBERT's real embeddings, with the anisotropy removed and the semantics kept.
+
+    RQ7 established that random vectors carrying PubMedBERT's anisotropic geometry perform as well
+    as PubMedBERT itself, while orthonormal random vectors are reliably worse. That points at the
+    geometry rather than the meaning, but it cannot finish the argument, because every condition
+    that had the geometry also lacked semantics and vice versa. The missing cell is the one that
+    keeps the meaning and discards only the geometry.
+
+    Whitening supplies it. Let M be the 4 x 768 matrix of L2-normalized class embeddings and
+    G = M M^T their Gram matrix, whose off-diagonal entries are the ~0.99 similarities. Applying
+    W = G^(-1/2) on the left gives M' = W M with Gram W G W^T = I: the four vectors are now mutually
+    orthogonal, so the anisotropy is gone. Crucially W is invertible, so M' spans exactly the same
+    subspace as M and each row remains a linear combination of the original embeddings -- no
+    semantic content has been added or destroyed, only the angles between the classes.
+
+    The prediction this tests: if RQ7's geometry story is the whole story, whitened embeddings
+    should perform like randvec_ortho, which shares their geometry and has no semantics at all. If
+    they instead perform like PubMedBERT, the meaning was doing work that RQ7's design could not see.
+    """
+    mat = torch.stack([pubmedbert[r] for r in REGION_ORDER]).double()
+    normed = torch.nn.functional.normalize(mat, dim=-1)
+    gram = normed @ normed.T
+
+    eigenvalues, eigenvectors = torch.linalg.eigh(gram)
+    eigenvalues = eigenvalues.clamp(min=1e-10)   # G is near rank-deficient by construction
+    whitener = eigenvectors @ torch.diag(eigenvalues.rsqrt()) @ eigenvectors.T   # G^(-1/2)
+    rows = (whitener @ normed).float()
+
+    embeddings = {r: rows[i] for i, r in enumerate(REGION_ORDER)}
+    achieved = torch.nn.functional.normalize(rows, dim=-1) @ torch.nn.functional.normalize(rows, dim=-1).T
+    off = achieved[~torch.eye(len(REGION_ORDER), dtype=bool)]
+    print(f"\n[whitened] max |off-diagonal cosine| after whitening: {off.abs().max().item():.2e} "
+          f"(should be ~0; PubMedBERT's is ~0.99)")
+    return rescale_to(embeddings, target_norms)
+
+
 def rescale_to(embeddings, target_norms):
     """Match each class embedding's L2 norm to PubMedBERT's, so the trainable projection head sees
     comparable input magnitudes across variants and scale is not a confound."""
@@ -144,6 +181,7 @@ def main():
         "randbert": build_randbert(target_norms),
         "randvec_ortho": build_randvec_ortho(target_norms),
         "randvec_aniso": build_randvec_aniso(pubmedbert, target_norms),
+        "whitened": build_whitened(pubmedbert, target_norms),
     }
 
     print("\n" + "=" * 78)

@@ -2,7 +2,7 @@
 
 **Attribution.** Every file below was written by me for this project. None contains code copied from another project, another assignment, or a third-party codebase. Third-party libraries (PyTorch, MONAI, Hugging Face Transformers, scikit-image, SciPy, matplotlib) and the pretrained PubMedBERT weights are used through their public APIs and package installs; nothing is vendored into this repository.
 
-**Totals: 62 files, 11,170 lines.** Line counts below are `wc -l` including docstrings and comments.
+**Totals: 62 files, 11,242 lines.** Line counts below are `wc -l` including docstrings and comments.
 
 Run order for a full reproduction is documented in the [root README](../README.md).
 
@@ -14,7 +14,7 @@ Run order for a full reproduction is documented in the [root README](../README.m
 |---|---|---|
 | `preprocess.py` | 190 | Loads raw BraTS2020 NIfTI volumes, z-score normalizes per modality *within the brain mask*, resizes to 128³, and computes per-patient/per-region lesion volumes at **native** resolution for size-bin stratification. Handles the `BraTS20_Training_355` misnamed-segmentation quirk and writes results incrementally so a mid-run crash cannot discard completed work. |
 | `text_encoder.py` | 204 | PubMedBERT wrapper and the single source of all text used in the project. Defines and embeds the base region descriptions (ET/TC/WT/NONE), the size-conditioned variants (RQ2/RQ4), and the naturalistic radiology-style variants (RQ5). |
-| `build_rq7_text_variants.py` | 166 | Builds the four RQ7 text-encoder ablation conditions: BERT-base, random-init BERT, random orthonormal vectors, and random vectors resampled to PubMedBERT's anisotropic geometry. |
+| `build_rq7_text_variants.py` | 204 | Builds the four RQ7 text-encoder ablation conditions: BERT-base, random-init BERT, random orthonormal vectors, and random vectors resampled to PubMedBERT's anisotropic geometry. |
 | `build_rq8_probe_texts.py` | 181 | Builds the five RQ8 compositionality probes (original / negated / shuffled / swapped / generic) and asserts the `original` embedding matches the training embedding to floating-point tolerance. |
 
 ## Datasets and model
@@ -26,7 +26,7 @@ Run order for a full reproduction is documented in the [root README](../README.m
 | `dataset_rq4.py` | 90 | Scale-matched dataset: crop size tied to the true size bin (16³/32³/64³), resized to the canonical 32³ input. Changes the geometry as well as the text. |
 | `dataset_pprime.py` | 105 | Full-volume dense-label dataset for the P′ supervised reference, with tumor-biased random cropping. |
 | `model.py` | 51 | `TextVolumeAligner`: MONAI 3D ResNet-10 volume encoder + linear text projection into a shared 256-d L2-normalized space. |
-| `localize.py` | 113 | `sliding_window_heatmap()`: sweeps the encoder across a volume accumulating per-voxel cosine similarity to a text query. Supports querying at a different physical window size than the model was trained at, which is what makes the entire window sweep possible without retraining, and a `weighting` mode selecting how a window's single scalar score is spread over the voxels it covers — uniformly, as everything before RQ15 did, or by a centre-peaked Gaussian, which is what Section 7.14 shows the uniform rule was discarding. |
+| `localize.py` | 134 | `sliding_window_heatmap()`: sweeps the encoder across a volume accumulating per-voxel cosine similarity to a text query. Supports querying at a different physical window size than the model was trained at, which is what makes the entire window sweep possible without retraining, and a `weighting` mode selecting how a window's single scalar score is spread over the voxels it covers — uniformly, as everything before RQ15 did, or by a centre-peaked Gaussian, which is what Section 7.14 shows the uniform rule was discarding. |
 
 ## Training
 
@@ -37,7 +37,7 @@ Run order for a full reproduction is documented in the [root README](../README.m
 | `train_rq4.py` | 128 | RQ4: 10-way size-conditioned classification with scale-matched patch sampling. |
 | `train_rq5.py` | 128 | RQ5: baseline trained against naturalistic rather than templated text. |
 | `train_rq6.py` | 146 | RQ6: RQ4's setup plus a uniformity regularizer penalizing high pairwise cosine similarity among projected class embeddings, to break the "large"-class hub RQ4 diagnosed. |
-| `train_rq7.py` | 152 | RQ7: baseline trained against one substituted text-encoder condition. |
+| `train_rq7.py` | 155 | RQ7: baseline trained against one substituted text-encoder condition. |
 | `train_pprime_supervised.py` | 195 | **P′ reference point.** Conventional supervised 3D U-Net segmentation on the identical split, data and metric — the previously-studied problem used to validate that the shared pipeline is sound. |
 
 ## Evaluation
@@ -53,10 +53,10 @@ Run order for a full reproduction is documented in the [root README](../README.m
 | `evaluate_rq5.py` | 112 | Size-stratified evaluation of the naturalistic-text model. |
 | `evaluate_rq6.py` | 124 | RQ6 under RQ4's protocol, for a direct paired comparison. |
 | `evaluate_rq6_single_scale.py` | 113 | Oracle test isolating whether RQ6's benefit comes from the embedding fix or from cross-scale ensembling. |
-| `evaluate_rq7.py` | 119 | One text-encoder ablation under the identical RQ1 protocol. |
+| `evaluate_rq7.py` | 122 | One text-encoder ablation under the identical RQ1 protocol. |
 | `evaluate_rq8_compositionality.py` | 193 | RQ8 probes. Carries a built-in correctness gate: its `original` condition must reproduce `rq1_localization_scores.csv` exactly. |
 | `evaluate_rq11_threshold_confound.py` | 234 | RQ11: recomputes each heatmap once and scores it under five binarization rules plus the pointing game, decomposing the collapse into grounding and thresholding. |
-| `evaluate_grounding_sweep.py` | 223 | RQ12: generalizes RQ11 to any window size, with a **tie-aware** pointing metric. At window 32 it must reproduce RQ11's CSV — an end-to-end correctness gate. Window, stride and accumulation weighting are independent settings, each recorded as a column and in the filename, because the RQ14 factorial varies them separately. |
+| `evaluate_grounding_sweep.py` | 230 | RQ12: generalizes RQ11 to any window size, with a **tie-aware** pointing metric. At window 32 it must reproduce RQ11's CSV — an end-to-end correctness gate. Window, stride and accumulation weighting are independent settings, each recorded as a column and in the filename, because the RQ14 factorial varies them separately. |
 | `evaluate_pprime_supervised.py` | 118 | Scores the P′ segmenter against published BraTS Dice ranges and by the project's own size terciles. |
 | `evaluate_ablation_thresholds.py` | 255 | RQ13: re-scores the retrained arms (RQ2/RQ4/RQ6) under all five binarizers, reproducing each arm's published ensemble heatmap construction exactly. |
 

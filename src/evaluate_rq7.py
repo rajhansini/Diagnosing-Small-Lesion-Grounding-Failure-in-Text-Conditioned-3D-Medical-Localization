@@ -25,7 +25,10 @@ from text_encoder import REGION_ORDER
 PREPROCESSED_DIR = "/net/projects/ranalab/rajhansini/nlp_project/data/preprocessed"
 CKPT_DIR = "/net/projects/ranalab/rajhansini/nlp_project/checkpoints"
 RESULTS_DIR = "/net/projects/ranalab/rajhansini/nlp_project/results"
-VARIANTS = ["bertbase", "randbert", "randvec_ortho", "randvec_aniso"]
+# "whitened" is RQ7's missing cell: PubMedBERT's real embeddings with the anisotropy
+# removed by an invertible whitening map, so it keeps the semantics and discards only
+# the geometry -- the one combination the original four conditions never isolated.
+VARIANTS = ["bertbase", "randbert", "randvec_ortho", "randvec_aniso", "whitened"]
 
 
 def main():
