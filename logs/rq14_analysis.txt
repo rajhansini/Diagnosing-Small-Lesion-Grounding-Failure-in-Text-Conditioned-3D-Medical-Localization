@@ -190,6 +190,55 @@ Recomputed from results/rq12_grounding_*_scores.csv; nothing here is transcribed
     single-query baseline did. The fix helps the baseline more than it helps them.
 
 ============================================================================================================
+[I] THE DECOMPOSITION, RECOMPUTED UNDER THE CENTRE-WEIGHTED READ-OUT
+============================================================================================================
+    comparison                           uniform   gaussian   p (gaussian)
+    sampling   32^3/16 -> 32^3/4         +0.0761    +0.0376   1.2e-24
+    window     32^3/4  -> 16^3/4         +0.0201    -0.0060   1.0e-01  (n.s.)
+
+    Both interventions were substantially compensating for the read-out. Fix the read-out
+    and the receptive-field term is gone -- not merely smaller but indistinguishable from
+    zero -- while sampling more densely is still worth something, at half its former size.
+    The intervention Sections 7.3, 7.4 and 7.11 spent four sections refining turns out to
+    have been recovering resolution that a better accumulation rule simply does not lose.
+
+============================================================================================================
+[J] THE WINDOW CURVE AT FIXED STRIDE 4 -- the receptive field on its own
+============================================================================================================
+    window       top 1%   oracle  pointing  ET-small
+    32           0.3730   0.4005     0.573      0/21
+    24           0.3880   0.4301     0.629      1/21
+    20           0.3921   0.4371     0.620      2/21
+    16           0.3930   0.4376     0.610      0/21
+    14           0.3949   0.4405     0.592      3/21
+    12           0.3860   0.4240     0.559      2/21
+    8            0.3568   0.3754     0.484      4/21
+
+    A shallow interior maximum near 14^3 on both Dice rules, spanning 0.022 Dice across
+    the whole range -- and the three metrics disagree about where it is. Dice peaks at
+    14^3, pointing at 24^3, and the small-ET bin keeps improving to 8^3. That is the same
+    shape as Section 7.11's regional split, one level up: not three regions wanting three
+    windows but three questions wanting three windows.
+
+============================================================================================================
+[K] KERNEL SHAPE -- centre-weighting, or that particular bell curve?
+============================================================================================================
+    All at 32^3/stride-16. Triangular and Epanechnikov have compact support -- exactly
+    zero past +/-2 sigma -- where the Gaussian keeps a tail out to the window edge.
+
+    shape                Otsu   top 1%   oracle  pointing  ET-small
+    uniform            0.0972   0.2968   0.3085     0.423      0/21
+    gaussian           0.0310   0.3893   0.4532     0.676      7/21
+    triangular         0.0265   0.3883   0.4507     0.662      8/21
+    epanechnikov       0.0418   0.3838   0.4430     0.671      7/21
+
+    The three shapes agree to within 0.01 Dice and 0.014 pointing despite differing in
+    whether they have a tail at all. The result is therefore about attributing a window's
+    evidence toward its centre, not about the Gaussian: any sensible centre-peaked kernel
+    recovers effectively the same thing, which is what makes it a property of the pipeline
+    rather than a tuned choice.
+
+============================================================================================================
 [F] COST -- the read-out fix is free, the sampling fix is not
 ============================================================================================================
     condition                           windows/vol  oracle Dice

@@ -321,6 +321,79 @@ def block_arms_reread():
     print("    single-query baseline did. The fix helps the baseline more than it helps them.")
 
 
+def block_decomposition_under_readout():
+    """Does RQ14's own decomposition survive the read-out RQ15 replaced it with?
+
+    RQ14 split the reported window benefit into sampling density and receptive field while measuring
+    both through the uniform accumulation rule. RQ15 then showed that rule is not neutral. So the
+    decomposition has to be recomputed with both sides moved, and the answer is that neither term
+    means what it did: the window term disappears entirely and the sampling term halves.
+    """
+    header("[I] THE DECOMPOSITION, RECOMPUTED UNDER THE CENTRE-WEIGHTED READ-OUT")
+    print(f"    {'comparison':<34}{'uniform':>10}{'gaussian':>11}   p (gaussian)")
+    for label, (w1, s1), (w2, s2) in [("sampling   32^3/16 -> 32^3/4", (32, 16), (32, 4)),
+                                      ("window     32^3/4  -> 16^3/4", (32, 4), (16, 4))]:
+        du, _, _ = compare(load(w1, s1), load(w2, s2), "pct99")
+        dg, pg, _ = compare(load(w1, s1, "gaussian"), load(w2, s2, "gaussian"), "pct99")
+        flag = "" if pg < 0.05 else "  (n.s.)"
+        print(f"    {label:<34}{du:>+10.4f}{dg:>+11.4f}   {pg:.1e}{flag}")
+    print()
+    print("    Both interventions were substantially compensating for the read-out. Fix the read-out")
+    print("    and the receptive-field term is gone -- not merely smaller but indistinguishable from")
+    print("    zero -- while sampling more densely is still worth something, at half its former size.")
+    print("    The intervention Sections 7.3, 7.4 and 7.11 spent four sections refining turns out to")
+    print("    have been recovering resolution that a better accumulation rule simply does not lose.")
+
+
+def block_stride4_sweep():
+    """Where the receptive field actually peaks once sampling density is held fixed."""
+    header("[J] THE WINDOW CURVE AT FIXED STRIDE 4 -- the receptive field on its own")
+    print(f"    {'window':<10}{'top 1%':>9}{'oracle':>9}{'pointing':>10}{'ET-small':>10}")
+    for w in [32, 24, 20, 16, 14, 12, 8]:
+        rows = load(w, 4)
+        if rows is None:
+            print(f"    {w:<10}   (not run)")
+            continue
+        h, n = pointing(rows)
+        e, en = pointing(rows, "ET", "small")
+        print(f"    {w:<10}{pooled(rows, 'pct99'):>9.4f}{pooled(rows, 'oracle_volume'):>9.4f}"
+              f"{h / n:>10.3f}{f'{e}/{en}':>10}")
+    print()
+    print("    A shallow interior maximum near 14^3 on both Dice rules, spanning 0.022 Dice across")
+    print("    the whole range -- and the three metrics disagree about where it is. Dice peaks at")
+    print("    14^3, pointing at 24^3, and the small-ET bin keeps improving to 8^3. That is the same")
+    print("    shape as Section 7.11's regional split, one level up: not three regions wanting three")
+    print("    windows but three questions wanting three windows.")
+
+
+def block_kernel_shape():
+    """Is the read-out result about centre-weighting, or about the Gaussian specifically?"""
+    header("[K] KERNEL SHAPE -- centre-weighting, or that particular bell curve?")
+    print("    All at 32^3/stride-16. Triangular and Epanechnikov have compact support -- exactly")
+    print("    zero past +/-2 sigma -- where the Gaussian keeps a tail out to the window edge.")
+    print()
+    print(f"    {'shape':<16}{'Otsu':>9}{'top 1%':>9}{'oracle':>9}{'pointing':>10}{'ET-small':>10}")
+    conds = [("uniform", load(32, 16))]
+    for shape in ["gaussian", "triangular", "epanechnikov"]:
+        suffix = "" if shape == "gaussian" else f"_{shape}"
+        p = os.path.join(RESULTS, f"rq12_grounding_window32_stride16_gaussian{suffix}_scores.csv")
+        conds.append((shape, list(csv.DictReader(open(p, newline=""))) if os.path.exists(p) else None))
+    for name, rows in conds:
+        if rows is None:
+            print(f"    {name:<16}   (not run)")
+            continue
+        h, n = pointing(rows)
+        e, en = pointing(rows, "ET", "small")
+        print(f"    {name:<16}{pooled(rows, 'otsu'):>9.4f}{pooled(rows, 'pct99'):>9.4f}"
+              f"{pooled(rows, 'oracle_volume'):>9.4f}{h / n:>10.3f}{f'{e}/{en}':>10}")
+    print()
+    print("    The three shapes agree to within 0.01 Dice and 0.014 pointing despite differing in")
+    print("    whether they have a tail at all. The result is therefore about attributing a window's")
+    print("    evidence toward its centre, not about the Gaussian: any sensible centre-peaked kernel")
+    print("    recovers effectively the same thing, which is what makes it a property of the pipeline")
+    print("    rather than a tuned choice.")
+
+
 def block_cost():
     """What the two interventions cost, against what they buy."""
     header("[F] COST -- the read-out fix is free, the sampling fix is not")
@@ -352,6 +425,9 @@ def main():
     block_accumulation_regions()
     block_kernel_width()
     block_arms_reread()
+    block_decomposition_under_readout()
+    block_stride4_sweep()
+    block_kernel_shape()
     block_cost()
     print("\nDone.")
 

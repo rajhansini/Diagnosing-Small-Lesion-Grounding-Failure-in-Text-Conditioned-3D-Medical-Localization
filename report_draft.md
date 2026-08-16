@@ -15,7 +15,7 @@ Recent 3D medical vision-language models can detect *that* a pathological findin
 
 **The language pathway contributes almost nothing.** Replacing PubMedBERT with general-domain BERT, with a randomly initialized never-trained BERT, or with random vectors carrying no language at all produces effects that change sign across training runs — indistinguishable from the 0.0044 Dice noise floor of simply retraining the baseline. Only discarding PubMedBERT's anisotropic embedding *geometry* reliably hurts (−0.0087, consistent across three seeds). Probing the trained model directly, negating the query, destroying its word order, swapping its anatomical referent, or replacing it with contentless filler all leave the projected embedding above 0.94 cosine to the original and the heatmap at ρ = 0.56–1.00; for whole tumor, generic filler and a wrong-region term both *outperform* the true clinical description. The query functions as an opaque class identifier that happens to be spelled in English.
 
-**What works is not what we first thought, and it is free.** Size-conditioned prompting (whose reported gain turns out to be an artifact of the binarizer, vanishing under every calibrated rule), multi-scale ensembling, scale-matched retraining (which a noise probe shows learned resize-interpolation shortcuts, ANOVA p≈4×10⁻²⁵¹) and a uniformity regularizer all fail to beat the plain baseline. Evaluating the frozen model at a smaller query window does help, but a factorial that varies window size and stride independently — which the original sweep never did, having set stride = window/2 at every point — shows most of that gain was **sampling density, not receptive field**: +0.076 Dice from sampling the volume more finely at a fixed 32³ window, against +0.020 from shrinking the window at fixed stride. The largest effect in the project lies somewhere else entirely. The sliding window gives every voxel it covers the same scalar score, so the heatmap is piecewise-constant over stride³ blocks; weighting each window's contribution by a centre-peaked kernel instead — same model, same windows, **no retraining and no additional forward passes** — collapses the tied plateau from 4,096 voxels to 1 and is worth **+0.145 Dice** at the original protocol, more than any window or threshold change and at 71× less compute than the best densely-sampled alternative.
+**What works is not what we first thought, and it is free.** Size-conditioned prompting (whose reported gain turns out to be an artifact of the binarizer, vanishing under every calibrated rule), multi-scale ensembling, scale-matched retraining (which a noise probe shows learned resize-interpolation shortcuts, ANOVA p≈4×10⁻²⁵¹) and a uniformity regularizer all fail to beat the plain baseline. Evaluating the frozen model at a smaller query window appears to help, but a factorial varying window size and stride independently — which the original sweep never did, having set stride = window/2 at every point — reassigns most of that gain to **sampling density rather than receptive field** (+0.076 against +0.020), and recomputing both terms under the read-out below removes the receptive-field term altogether. The largest effect in the project lies somewhere else entirely. The sliding window gives every voxel it covers the same scalar score, so the heatmap is piecewise-constant over stride³ blocks; weighting each window's contribution by a centre-peaked kernel instead — same model, same windows, **no retraining and no additional forward passes** — collapses the tied plateau from 4,096 voxels to 1 and is worth **+0.145 Dice** at the original protocol, more than any window or threshold change and at 71× less compute than the best densely-sampled alternative.
 
 **The methodological result is the transferable one.** Eight conclusions here were overturned or materially qualified *after* being written up, by controls rather than by significance tests — including this report's own central mechanism, twice. Three separate components assumed to be neutral instruments turned out to carry results: the binarizer, the coupling of window size to stride, and the rule attributing a window's score to voxels. The general lesson: a shared confound is not a cancelled confound, and every stage of a pipeline is an instrument until measured otherwise. Every comparison in this report used one binarizer, which we argued made them internally fair; Otsu and every calibrated rule turn out to disagree in *sign* about the same pair of heatmaps, so arms that interact differently with a shared instrument can be ranked backwards by it, invisibly to any amount of paired testing or FDR correction.
 
@@ -791,6 +791,29 @@ The sampling term on its own (+0.0761) is larger than the entire effect Section 
 
 **A better operating point, and a cheaper honest recommendation.** The best uniform cell is **16³/stride 4**, which beats Section 7.11's recommended 12³/6 by +0.0238 top-1% (p=1.5×10⁻¹⁵) and +0.0297 oracle. But 24,389 forward passes per volume is 71× the baseline, and Section 7.14 shows the same gain is available for free.
 
+**Where the receptive field actually peaks, with sampling density held fixed.** The factorial only tested 32³, 16³, 12³ and 8³ at stride 4. Filling in the gaps locates the optimum properly, and shows how shallow it is:
+
+| window (stride 4) | top 1% | oracle | pointing | ET-small |
+|---|---|---|---|---|
+| 32³ | 0.3730 | 0.4005 | 0.573 | 0/21 |
+| 24³ | 0.3880 | 0.4301 | **0.629** | 1/21 |
+| 20³ | 0.3921 | 0.4371 | 0.620 | 2/21 |
+| 16³ | 0.3930 | 0.4376 | 0.610 | 0/21 |
+| **14³** | **0.3949** | **0.4405** | 0.592 | 3/21 |
+| 12³ | 0.3860 | 0.4240 | 0.559 | 2/21 |
+| 8³ | 0.3568 | 0.3754 | 0.484 | **4/21** |
+
+The whole curve spans 0.022 Dice, and **the three metrics disagree about where the optimum is**: Dice peaks at 14³, threshold-free pointing at 24³, and the small-ET bin keeps improving all the way to 8³. That is the same shape as Section 7.11's regional split one level up — not three regions wanting three windows, but three *questions* wanting three windows. Reporting a single recommended window was always going to be lossy.
+
+**And the decomposition itself does not survive Section 7.14.** Everything above measures both terms through the uniform accumulation rule, which the next section shows is not neutral. Recomputing with both sides moved:
+
+| | uniform | centre-weighted |
+|---|---|---|
+| sampling density (32³/16 → 32³/4) | +0.0761 | **+0.0376** (p=1.2×10⁻²⁴) |
+| receptive field (32³/4 → 16³/4) | +0.0201 | **−0.0060** (p=0.10, **n.s.**) |
+
+**Fix the read-out and the receptive-field term disappears entirely** — not merely smaller but indistinguishable from zero — while the sampling term survives at half its size. Both interventions were substantially compensating for a read-out that was throwing resolution away. The window intervention this report spent four sections discovering, isolating, correcting and re-correcting turns out to have been recovering something a better accumulation rule never loses in the first place.
+
 ### 7.14 RQ15: The read-out rule was throwing the resolution away
 
 Section 6.3 measured a 4,096-voxel tied plateau at the published protocol and concluded: *within the block it selects, the model has no information about where the lesion sits.* That inference has a hidden premise — that the accumulation rule is a neutral way to turn window scores into a heatmap. It is not, and this is the third time in this report an instrument assumed to be neutral has turned out to carry the result.
@@ -826,6 +849,17 @@ The reading of Section 6.3 has to be narrowed a second time. It is not that the 
 At **w/2** the kernel is wide enough to approach uniform smearing again, and the numbers say so: Otsu climbs back to 0.0904 against uniform's 0.0972, and oracle Dice falls to 0.3750. At **w/8** the opposite failure appears. A near-delta kernel localises the peak superbly — the best pointing rate in the table and the best small-ET result anywhere in this report, 8 of 21 — but discards the window's real spatial extent, so the *mask* it draws is poor and Dice falls back to roughly the uniform value.
 
 Both Dice rules peak at w/4; both threshold-free measures peak at or just below it. That is a genuine trade-off rather than a curve with one summit: **the width that best draws the lesion is not quite the width that best finds it**, and a system that cares about detection rather than delineation should use a narrower kernel than the one this section reports.
+
+**Is this about centre-weighting, or about the Gaussian?** One kernel shape cannot tell those apart, so we ran two more at the same protocol. Triangular and Epanechnikov both have *compact support* — exactly zero past ±2σ — where the Gaussian keeps a tail out to the window edge.
+
+| shape | Otsu | top 1% | oracle | pointing | ET-small |
+|---|---|---|---|---|---|
+| *uniform* | 0.0972 | 0.2968 | 0.3085 | 0.423 | 0/21 |
+| Gaussian | 0.0310 | 0.3893 | 0.4532 | 0.676 | 7/21 |
+| triangular | 0.0265 | 0.3883 | 0.4507 | 0.662 | **8/21** |
+| Epanechnikov | 0.0418 | 0.3838 | 0.4430 | 0.671 | 7/21 |
+
+The three agree to within 0.01 Dice and 0.014 pointing despite disagreeing about whether a tail exists at all. **The result is about attributing a window's evidence toward its centre, not about the Gaussian** — any sensible centre-peaked kernel recovers effectively the same thing. That makes it a property of the pipeline rather than a tuned choice, which is the more useful kind of finding and the harder one to argue with.
 
 **Otsu moves the other way, for the third time.** Centre-weighting makes the heatmap smooth and high-entropy, which is precisely the histogram shape Otsu's between-class-variance criterion handles worst — so the rule that rewarded the blockiest heatmap in Section 7.11's tiling comparison also penalises the sharpest one here, by −0.066. Every calibrated rule and both threshold-free metrics move in the opposite direction to it.
 
@@ -868,7 +902,7 @@ The centre-weighted read-out at the *original* window and stride beats the best 
 
 **The bottom line, after Sections 7.13 and 7.14.** The intervention that works is not the one this report spent four sections on. **Weighting each window's contribution toward its own centre instead of smearing it uniformly** — no retraining, no extra forward passes, at the original 32³/stride-16 protocol — is worth **+0.145 Dice** under the oracle and +0.092 under the deployable top-1% rule, collapses the tied plateau from 4,096 voxels to 1, and takes ET-small from 0 of 21 to 7 of 21. It beats the best densely-sampled window configuration in the entire grid while doing 71× fewer forward passes.
 
-The smaller query window does help, but less and for a different reason than reported: the factorial in Section 7.13 attributes +0.076 of it to sampling density at a fixed window and only +0.020 to the receptive field, with the window term reversing to a significant loss by 8³. What the receptive field alone still explains is the one thing sampling density cannot touch — small enhancing tumor stays at 0 of 21 under every 32³ condition however finely sampled.
+The smaller query window turns out not to be an intervention at all. Section 7.13's factorial first attributes only +0.020 of the reported benefit to the receptive field and +0.076 to sampling density; recomputing both terms under the centre-weighted read-out then removes the receptive-field term entirely (−0.006, p=0.10) and halves the sampling term. Four sections of this report — 7.2, 7.3, 7.4 and 7.11 — were spent discovering, isolating, correcting and re-correcting a Dice gain that a better accumulation rule simply never loses. What the receptive field alone still explains is the one thing sampling density cannot touch: small enhancing tumor stays at 0 of 21 under every 32³ condition however finely sampled, and moves only when the window shrinks.
 
 Every other attempt failed to beat the plain baseline: text-side size conditioning (RQ2, whose apparent gain Section 7.12 shows was an Otsu artifact), naive multi-scale ensembling (RQ3), scale-matched retraining (RQ4, which a noise probe showed had learned resize artifacts), and the uniformity-regularizer repair (RQ6). Each produced genuine partial successes on its own terms; none surpassed doing nothing but changing the query window. Added complexity introduced new failure modes faster than it fixed the original one.
 
@@ -983,9 +1017,9 @@ Ordered by expected value per unit of effort, with the cheap and decisive ones f
 
 **Cheap, and directly follows from a bracketed result**
 
-- **Try kernel shapes other than Gaussian.** Section 7.14 swept the Gaussian's *width* and found an interior optimum at σ = w/4, with a detection-versus-delineation trade-off either side of it. What it did not vary is the shape: triangular, Epanechnikov and learned kernels are each one line away, and a learned one could in principle recover the per-scale weighting RQ6 needed and never got. Cheap, and the natural continuation of the largest effect in the report.
+- **Learn the accumulation kernel rather than fixing it.** Section 7.14 shows Gaussian, triangular and Epanechnikov agree to within 0.01 Dice, so the shape is not the lever — but all three are hand-chosen and isotropic. A kernel learned per scale, or conditioned on the query, is the natural next step and is the one remaining variant that could still beat a fixed centre-peaked weighting.
 - **Finish re-running Section 7 under the centre-weighted read-out.** Section 7.14 does this for the three retrained arms and four of fifteen verdicts change sign, so the exercise is not hypothetical. What remains are the inference-side arms — RQ3's multi-scale ensemble and the RQ3b/RQ3c window points — which need the same treatment and, being ensembles over several maps, are the ones most likely to respond differently again. Nothing needs retraining: the frozen checkpoints and the existing evaluation scripts already support `--weighting gaussian`, and Section 7.14's re-scoring is the template.
-- **Pin down the window-size optimum, per region, at fixed stride.** Section 7.13 shows the receptive-field effect is small, non-monotonic and reverses by 8³, so the remaining question is narrow: where between 32³ and 12³ does it actually peak when sampling density is held constant? A denser stride-4 sweep (24³, 20³, 14³) answers it in a few GPU-hours.
+- **Ask what is left for the receptive field to do.** Section 7.13's stride-4 sweep locates a shallow Dice optimum near 14³, but under the centre-weighted read-out the window term is no longer significant at all. The open question is therefore not where the optimum sits but whether the receptive field matters once the read-out is fixed — and the one place it demonstrably still does is small enhancing tumor, which no amount of sampling rescues. That bin, not the pooled curve, is where a window study should now be aimed.
 
 **Cheap, and tests whether the central negative result is fixable at all**
 
@@ -1019,7 +1053,7 @@ This was an individual project; all design decisions, code, experiments, and wri
 
 **Where the time actually went, versus where I expected.** I expected the bulk of the effort to be in getting a model to work. It was not — the baseline trained on essentially the first serious attempt. The real cost was in *checking* results, and the checks were where the project's actual content came from. Six conclusions I had already written up as findings did not survive their own follow-up test (Section 8), and the one that hurt most — discovering that this project's apparent best intervention won only under the threshold I had standardized on — arrived late enough that it required rewriting the report's conclusion rather than just adding a caveat. If I ran this project again I would build the diagnostic layer first and the model second (Section 10).
 
-**Scale of the finished work.** 62 Python files totalling 11,242 lines, 45 SLURM batch scripts driving 120 cluster jobs and 34.2 GPU-hours, 67 per-patient result tables, 171 paired significance tests, and 41 figures — every one of which regenerates from the result CSVs and training logs, so no number in this report was transcribed by hand. A companion document, `work_log.pdf`, walks through all seventeen experiments in the order they happened and names the script that produced every number.
+**Scale of the finished work.** 62 Python files totalling 11,318 lines, 45 SLURM batch scripts driving 120 cluster jobs and 34.2 GPU-hours, 76 per-patient result tables, 171 paired significance tests, and 41 figures — every one of which regenerates from the result CSVs and training logs, so no number in this report was transcribed by hand. A companion document, `work_log.pdf`, walks through all seventeen experiments in the order they happened and names the script that produced every number.
 
 ## Appendix A — Statistical detail
 
@@ -1039,7 +1073,7 @@ Everything in this appendix is recomputed by `analyze_full_family.py` and `analy
 
 | Category | Count | Notes |
 |---|---|---|
-| Python files | 62 (11,242 lines) | See `src/README.md` for a file-by-file listing with line counts |
+| Python files | 62 (11,318 lines) | See `src/README.md` for a file-by-file listing with line counts |
 | — data pipeline | 4 | `preprocess.py`, `text_encoder.py`, two text-variant builders |
 | — datasets and model | 6 | Four patch samplers, `model.py`, `localize.py` |
 | — training | 7 | One per arm, each taking `--seed` |
@@ -1049,7 +1083,7 @@ Everything in this appendix is recomputed by `analyze_full_family.py` and `analy
 | — figures | 14 | Draw all 41 figures from CSVs and logs |
 | SLURM scripts | 45 | Including 11 `smoke_test_*.sbatch` for the 10-minute `dev` partition |
 | Cluster jobs | 120 | 34.2 GPU-hours, almost all on one RTX 2080 Ti |
-| Result tables | 67 CSVs | One row per (patient, region); RQ11/12/13 add a `threshold_method` column, and the RQ14 factorial adds `stride` and `weighting` |
+| Result tables | 76 CSVs | One row per (patient, region); RQ11/12/13 add a `threshold_method` column, and the RQ14 factorial adds `stride` and `weighting` |
 | Statistical tests | 171 | All paired, all BH-corrected across the accumulated family |
 | Figures | 41 | 29 in the main narrative, 9 added in the appendix pass, 3 for RQ14/RQ15 |
 | Trained checkpoints | 52 | Baseline ×3 seeds (last only), four ablations ×3 seeds ×2 checkpoints, RQ7 ×4 conditions ×3 seeds ×2 checkpoints, P′ |

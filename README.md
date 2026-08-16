@@ -33,7 +33,7 @@ Between them the two documents carry all 41 figures; [`figures/README.md`](figur
 
 ## Repository layout
 
-- `src/` — all code (62 files, 11,242 lines). See [`src/README.md`](src/README.md) for a file-by-file breakdown with line counts.
+- `src/` — all code (62 files, 11,318 lines). See [`src/README.md`](src/README.md) for a file-by-file breakdown with line counts.
 - `slurm/` — SLURM batch scripts for every training and evaluation job. See [`slurm/README.md`](slurm/README.md).
 - `results/` — per-patient CSV outputs from every evaluation run. See [`results/README.md`](results/README.md) for the schema.
 - `figures/` — generated report figures. See [`figures/README.md`](figures/README.md).
