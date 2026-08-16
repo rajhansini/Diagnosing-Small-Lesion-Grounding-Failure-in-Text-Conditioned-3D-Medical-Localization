@@ -67,9 +67,13 @@ def save(fig, name):
     print("wrote", path)
 
 
-def load(window, stride, weighting="uniform"):
+def load(window, stride, weighting="uniform", sigma_frac=0.25, shape="gaussian"):
     """Read one sweep condition's score table as a list of dicts, or None if never run."""
     suffix = "" if weighting == "uniform" else f"_{weighting}"
+    if weighting == "gaussian" and sigma_frac != 0.25:
+        suffix += f"_sigma{str(sigma_frac).replace('.', 'p')}"
+    if weighting == "gaussian" and shape != "gaussian":
+        suffix += f"_{shape}"
     path = os.path.join(RESULTS_DIR,
                         f"rq12_grounding_window{window}_stride{stride}{suffix}_scores.csv")
     if not os.path.exists(path):
@@ -354,11 +358,160 @@ def fig_rq15_accumulation():
     save(fig, "fig_rq15_accumulation.png")
 
 
+def fig_rq14_readout_collapse():
+    """The decomposition recomputed under the read-out that replaced it.
+
+    Section 7.13 attributed the reported window benefit mostly to sampling density and a little to
+    the receptive field, measuring both through the uniform accumulation rule. Under the
+    centre-weighted rule the receptive-field term is not merely smaller, it is gone.
+    """
+    fig, axes = plt.subplots(1, 2, figsize=(13.0, 4.5),
+                             gridspec_kw={"width_ratios": [1, 1.35]})
+
+    ax = axes[0]
+    terms = [("sampling density\n32³/16 → 32³/4", (32, 16), (32, 4)),
+             ("receptive field\n32³/4 → 16³/4", (32, 4), (16, 4))]
+    x = np.arange(len(terms))
+    width = 0.36
+    uni, gau = [], []
+    for _, a, b in terms:
+        uni.append(pooled(load(*b), "pct99") - pooled(load(*a), "pct99"))
+        gau.append(pooled(load(b[0], b[1], "gaussian"), "pct99")
+                   - pooled(load(a[0], a[1], "gaussian"), "pct99"))
+    ax.bar(x - width / 2, uni, width, color="#bcbcb8", label="uniform read-out (as reported)")
+    ax.bar(x + width / 2, gau, width, color=PURPLE, label="centre-weighted read-out")
+    for xi, (u, g) in enumerate(zip(uni, gau)):
+        ax.text(xi - width / 2, u + 0.003, f"{u:+.4f}", ha="center", fontsize=9, color=INK)
+        ax.text(xi + width / 2, g + (0.003 if g > 0 else -0.009), f"{g:+.4f}", ha="center",
+                fontsize=9, color=GREEN if g > 0 else ORANGE, fontweight="bold")
+    ax.axhline(0, color=INK_MUTED, linewidth=1.0)
+    ax.annotate("not significant\n(p = 0.10)", xy=(1 + width / 2, gau[1]), xytext=(10, -38),
+                textcoords="offset points", fontsize=8.4, color=ORANGE, ha="center",
+                arrowprops=dict(arrowstyle="->", color=ORANGE, linewidth=1.2))
+    ax.set_xticks(x)
+    ax.set_xticklabels([t[0] for t in terms], fontsize=8.6)
+    ax.set_ylim(min(gau) - 0.030, max(uni) * 1.25)
+    style_axes(ax, ylabel="Δ pooled Dice, top-1%")
+    ax.set_title("Fix the read-out and one term disappears", fontsize=10, color=INK, pad=8)
+    ax.legend(frameon=False, fontsize=8.2, loc="upper right")
+
+    ax = axes[1]
+    windows = [32, 24, 20, 16, 14, 12, 8]
+    have = [(w, load(w, 4)) for w in windows]
+    have = [(w, t) for w, t in have if t is not None]
+    xs = np.arange(len(have))
+    dice = [pooled(t, "pct99") for _, t in have]
+    ax.plot(xs, dice, marker="o", markersize=6.5, linewidth=2.2, color=BLUE, label="Dice (top 1%)")
+    b = int(np.argmax(dice))
+    ax.scatter([b], [dice[b]], s=200, facecolor="none", edgecolor=BLUE, linewidth=1.8, zorder=5)
+    ax.annotate(f"{have[b][0]}³", xy=(b, dice[b]), xytext=(0, 13), textcoords="offset points",
+                ha="center", fontsize=9, color=BLUE, fontweight="bold")
+    style_axes(ax, ylabel="pooled Dice, top-1%", xlabel="query window, stride fixed at 4")
+    ax.set_xticks(xs)
+    ax.set_xticklabels([f"{w}³" for w, _ in have], fontsize=9)
+
+    ax2 = ax.twinx()
+    pt = [hits(t)[0] / hits(t)[1] for _, t in have]
+    ax2.plot(xs, pt, marker="s", markersize=5.5, linewidth=1.8, color=GREEN,
+             linestyle="--", label="pointing hit rate")
+    bp = int(np.argmax(pt))
+    ax2.annotate(f"{have[bp][0]}³", xy=(bp, pt[bp]), xytext=(0, 11),
+                 textcoords="offset points", ha="center", fontsize=9, color=GREEN,
+                 fontweight="bold")
+    et = [hits(t, "ET", "small")[0] for _, t in have]
+    ax2.plot(xs, [e / 21.0 for e in et], marker="^", markersize=5.5, linewidth=1.8, color=ORANGE,
+             linestyle=":", label="small-ET hit rate")
+    ax2.annotate(f"{have[-1][0]}³", xy=(len(have) - 1, et[-1] / 21.0), xytext=(0, 11),
+                 textcoords="offset points", ha="center", fontsize=9, color=ORANGE,
+                 fontweight="bold")
+    ax2.set_ylabel("hit rate", color=INK, fontsize=10)
+    ax2.tick_params(colors=INK_MUTED, labelsize=9)
+    ax2.spines["top"].set_visible(False)
+    ax.set_title("Three metrics, three different optima", fontsize=10, color=INK, pad=8)
+    h1, l1 = ax.get_legend_handles_labels()
+    h2, l2 = ax2.get_legend_handles_labels()
+    ax.legend(h1 + h2, l1 + l2, frameon=False, fontsize=8.0, loc="lower center")
+
+    fig.suptitle("What is left of the window intervention once the read-out is fixed",
+                 fontsize=12.5, fontweight="bold", color=INK, y=1.03)
+    caption(fig,
+            "Left: Section 7.13 split the reported benefit into sampling density and receptive field while measuring both through the\n"
+            "uniform accumulation rule. Recomputed under the centre-weighted rule the sampling term halves and the receptive-field term\n"
+            "is gone — −0.0060 at p=0.10. Both interventions were substantially compensating for a read-out that discarded resolution.\n"
+            "Right: with sampling pinned at stride 4 the whole window curve spans 0.022 Dice, and the three metrics disagree about its\n"
+            "optimum — Dice peaks at 14³, threshold-free pointing at 24³, and the small-ET bin keeps improving down to 8³.")
+    save(fig, "fig_rq14_readout_collapse.png")
+
+
+def fig_rq15_kernel():
+    """The two free choices the centre-weighted read-out introduces: how wide, and what shape."""
+    fig, axes = plt.subplots(1, 2, figsize=(13.0, 4.4))
+
+    ax = axes[0]
+    widths = [("uniform", load(32, 16)), ("w/8", load(32, 16, "gaussian", 0.125)),
+              ("w/4", load(32, 16, "gaussian", 0.25)), ("w/2", load(32, 16, "gaussian", 0.5))]
+    widths = [(n, t) for n, t in widths if t is not None]
+    xs = np.arange(len(widths))
+    ax.plot(xs, [pooled(t, "oracle_volume") for _, t in widths], marker="o", markersize=7,
+            linewidth=2.2, color=PURPLE, label="Dice (oracle)")
+    ax.plot(xs, [pooled(t, "pct99") for _, t in widths], marker="s", markersize=6,
+            linewidth=1.8, color=BLUE, label="Dice (top 1%)")
+    ax2 = ax.twinx()
+    ax2.plot(xs, [hits(t, "ET", "small")[0] for _, t in widths], marker="^", markersize=6,
+             linewidth=1.8, color=ORANGE, linestyle=":", label="small-ET hits")
+    ax2.set_ylabel("small-ET hits (of 21)", color=INK, fontsize=10)
+    ax2.tick_params(colors=INK_MUTED, labelsize=9)
+    ax2.spines["top"].set_visible(False)
+    ax.set_xticks(xs)
+    ax.set_xticklabels([n for n, _ in widths], fontsize=9.5)
+    style_axes(ax, ylabel="pooled Dice",
+               xlabel="kernel width (σ as a fraction of the window edge)")
+    ax.set_title("Width: an interior optimum, and a trade-off", fontsize=10, color=INK, pad=8)
+    h1, l1 = ax.get_legend_handles_labels()
+    h2, l2 = ax2.get_legend_handles_labels()
+    ax.legend(h1 + h2, l1 + l2, frameon=False, fontsize=8.0, loc="lower center")
+
+    ax = axes[1]
+    shapes = [("uniform", load(32, 16)), ("Gaussian", load(32, 16, "gaussian")),
+              ("triangular", load(32, 16, "gaussian", 0.25, "triangular")),
+              ("Epanechnikov", load(32, 16, "gaussian", 0.25, "epanechnikov"))]
+    shapes = [(n, t) for n, t in shapes if t is not None]
+    xs = np.arange(len(shapes))
+    width = 0.26
+    series = [(-width, "pct99", BLUE, "Dice (top 1%)"),
+              (0.0, "oracle_volume", PURPLE, "Dice (oracle)"),
+              (width, None, GREEN, "pointing")]
+    for off, method, color, lab in series:
+        if method:
+            vals = [pooled(t, method) for _, t in shapes]
+        else:
+            vals = [hits(t)[0] / hits(t)[1] for _, t in shapes]
+        ax.bar(xs + off, vals, width, color=color, label=lab)
+    ax.set_xticks(xs)
+    ax.set_xticklabels([n for n, _ in shapes], fontsize=9)
+    ax.set_ylim(0, 0.86)
+    style_axes(ax, ylabel="pooled score")
+    ax.set_title("Shape: the three centre-peaked kernels agree", fontsize=10, color=INK, pad=8)
+    ax.legend(frameon=False, fontsize=8.2, loc="upper left", ncol=3)
+
+    fig.suptitle("The read-out's two free parameters, and which of them matters",
+                 fontsize=12.5, fontweight="bold", color=INK, y=1.03)
+    caption(fig,
+            "Left: both Dice rules peak at σ = w/4, so the width chosen a priori is an interior optimum rather than a lucky guess. The two\n"
+            "ends fail differently — at w/2 the kernel is wide enough to approach uniform smearing again, while at w/8 a near-delta kernel\n"
+            "gives the best small-ET result in the project but draws a poor mask. Right: Gaussian, triangular and Epanechnikov agree to\n"
+            "within 0.01 Dice despite the last two having compact support where the Gaussian keeps a tail. The finding is about weighting\n"
+            "a window's evidence toward its own centre, not about the Gaussian in particular.")
+    save(fig, "fig_rq15_kernel.png")
+
+
 def main():
-    """Draw the three RQ14/RQ15 figures."""
+    """Draw the RQ14/RQ15 figures."""
     fig_rq14_factorial()
     fig_rq14_pointing_grid()
     fig_rq15_accumulation()
+    fig_rq14_readout_collapse()
+    fig_rq15_kernel()
 
 
 if __name__ == "__main__":

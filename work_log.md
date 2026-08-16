@@ -19,10 +19,10 @@ It is organised as:
 | **3** | The machinery: data, model, localization, metrics (with the code that does each) |
 | **4** | All seventeen experiments, in chronological order |
 | **5** | The eight conclusions we had to reverse, and how each was caught |
-| **6** | Complete inventory: 62 scripts, 120 cluster jobs, 76 result files, 41 figures |
+| **6** | Complete inventory: 62 scripts, 120 cluster jobs, 76 result files, 43 figures |
 | **7** | How to reproduce everything |
 
-**Scale of the work:** 62 Python files (11,318 lines), 45 cluster job scripts, **120 SLURM jobs totalling 34.2 GPU-hours**, 76 per-patient result tables, 171 statistical tests, 41 figures.
+**Scale of the work:** 62 Python files (11,471 lines), 45 cluster job scripts, **120 SLURM jobs totalling 34.2 GPU-hours**, 76 per-patient result tables, 171 statistical tests, 43 figures.
 
 \newpage
 
@@ -713,7 +713,7 @@ Also: **a single control is not a verdict.** Version 2 above *was* a control, an
 
 # Part 6 — Complete inventory
 
-## 6.1 Every Python file (62 files, 11,318 lines)
+## 6.1 Every Python file (62 files, 11,471 lines)
 
 **Data pipeline**
 
@@ -831,7 +831,7 @@ One row per (patient, region) with Dice, IoU, size bin and true volume. Naming: 
 
 # Closing summary
 
-**What was built.** A complete text-conditioned 3D localization pipeline: preprocessing, contrastive alignment, sliding-window localization, five binarization rules, three localization metrics, and a twelve-tool diagnostic layer — 62 files, 11,318 lines, 120 cluster jobs, 41 figures.
+**What was built.** A complete text-conditioned 3D localization pipeline: preprocessing, contrastive alignment, sliding-window localization, five binarization rules, three localization metrics, and a twelve-tool diagnostic layer — 62 files, 11,471 lines, 120 cluster jobs, 43 figures.
 
 **What was found.**
 

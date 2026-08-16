@@ -120,7 +120,7 @@ All code was written for this project; see [`src/README.md`](src/README.md) for 
 | **Evaluation** | `evaluate_rq1.py` and 14 siblings | `evaluate_rq1.py` defines `otsu_threshold()`, `dice_iou()` and `size_bin()`, which every other evaluation — including the supervised P′ — imports, so all arms are scored by literally the same code. |
 | **Diagnostics** | `test_rq4_shortcut_hypothesis.py`, `test_rq6_hub_bias.py`, `compute_chance_baseline.py`, `sanity_check_localize.py` | Noise probes, chance-level control, and the pre-flight check that the heatmap scores higher inside the true region than outside. |
 | **Analysis** | `analyze_full_family.py`, `analyze_seed_replication.py`, `analyze_rq7_multiseed.py`, `analyze_appendix.py`, `analyze_rq14.py`, and 7 others | Recompute every statistic directly from the saved per-patient CSVs, so no number in this report is transcribed by hand. |
-| **Figures** | 14 figure scripts | All 41 figures regenerate from the result CSVs and training logs; none is drawn by hand. |
+| **Figures** | 14 figure scripts | All 43 figures regenerate from the result CSVs and training logs; none is drawn by hand. |
 
 Two recurring design decisions are worth naming. First, **evaluation scripts import their metric definitions rather than redefining them**, which is what makes cross-experiment comparison meaningful. Second, **several scripts carry a built-in correctness gate**: `evaluate_rq8_compositionality.py` asserts its "original" condition reproduces RQ1's CSV exactly, and `evaluate_grounding_sweep.py` at window 32 must reproduce RQ11's — both caught real bugs during development.
 
@@ -812,6 +812,8 @@ The whole curve spans 0.022 Dice, and **the three metrics disagree about where t
 | sampling density (32³/16 → 32³/4) | +0.0761 | **+0.0376** (p=1.2×10⁻²⁴) |
 | receptive field (32³/4 → 16³/4) | +0.0201 | **−0.0060** (p=0.10, **n.s.**) |
 
+![Left: Section 7.13 split the reported window benefit into sampling density and receptive field while measuring both through the uniform accumulation rule; recomputed under the centre-weighted rule the sampling term halves and the receptive-field term is gone. Right: with sampling density pinned at stride 4, the whole window curve spans 0.022 Dice and the three metrics disagree about where its optimum lies.](figures/fig_rq14_readout_collapse.png){width=100%}
+
 **Fix the read-out and the receptive-field term disappears entirely** — not merely smaller but indistinguishable from zero — while the sampling term survives at half its size. Both interventions were substantially compensating for a read-out that was throwing resolution away. The window intervention this report spent four sections discovering, isolating, correcting and re-correcting turns out to have been recovering something a better accumulation rule never loses in the first place.
 
 ### 7.14 RQ15: The read-out rule was throwing the resolution away
@@ -849,6 +851,8 @@ The reading of Section 6.3 has to be narrowed a second time. It is not that the 
 At **w/2** the kernel is wide enough to approach uniform smearing again, and the numbers say so: Otsu climbs back to 0.0904 against uniform's 0.0972, and oracle Dice falls to 0.3750. At **w/8** the opposite failure appears. A near-delta kernel localises the peak superbly — the best pointing rate in the table and the best small-ET result anywhere in this report, 8 of 21 — but discards the window's real spatial extent, so the *mask* it draws is poor and Dice falls back to roughly the uniform value.
 
 Both Dice rules peak at w/4; both threshold-free measures peak at or just below it. That is a genuine trade-off rather than a curve with one summit: **the width that best draws the lesion is not quite the width that best finds it**, and a system that cares about detection rather than delineation should use a narrower kernel than the one this section reports.
+
+![The two free parameters the centre-weighted read-out introduces. Left: kernel width, with both Dice rules peaking at the a priori choice of σ = w/4 and the two ends failing in different ways — w/2 approaching uniform smearing, w/8 giving the project's best small-ET result but a poor mask. Right: kernel shape, where Gaussian, triangular and Epanechnikov agree despite the last two having compact support.](figures/fig_rq15_kernel.png){width=100%}
 
 **Is this about centre-weighting, or about the Gaussian?** One kernel shape cannot tell those apart, so we ran two more at the same protocol. Triangular and Epanechnikov both have *compact support* — exactly zero past ±2σ — where the Gaussian keeps a tail out to the window edge.
 
@@ -1053,7 +1057,7 @@ This was an individual project; all design decisions, code, experiments, and wri
 
 **Where the time actually went, versus where I expected.** I expected the bulk of the effort to be in getting a model to work. It was not — the baseline trained on essentially the first serious attempt. The real cost was in *checking* results, and the checks were where the project's actual content came from. Six conclusions I had already written up as findings did not survive their own follow-up test (Section 8), and the one that hurt most — discovering that this project's apparent best intervention won only under the threshold I had standardized on — arrived late enough that it required rewriting the report's conclusion rather than just adding a caveat. If I ran this project again I would build the diagnostic layer first and the model second (Section 10).
 
-**Scale of the finished work.** 62 Python files totalling 11,318 lines, 45 SLURM batch scripts driving 120 cluster jobs and 34.2 GPU-hours, 76 per-patient result tables, 171 paired significance tests, and 41 figures — every one of which regenerates from the result CSVs and training logs, so no number in this report was transcribed by hand. A companion document, `work_log.pdf`, walks through all seventeen experiments in the order they happened and names the script that produced every number.
+**Scale of the finished work.** 62 Python files totalling 11,471 lines, 45 SLURM batch scripts driving 120 cluster jobs and 34.2 GPU-hours, 76 per-patient result tables, 171 paired significance tests, and 43 figures — every one of which regenerates from the result CSVs and training logs, so no number in this report was transcribed by hand. A companion document, `work_log.pdf`, walks through all seventeen experiments in the order they happened and names the script that produced every number.
 
 ## Appendix A — Statistical detail
 
@@ -1073,19 +1077,19 @@ Everything in this appendix is recomputed by `analyze_full_family.py` and `analy
 
 | Category | Count | Notes |
 |---|---|---|
-| Python files | 62 (11,318 lines) | See `src/README.md` for a file-by-file listing with line counts |
+| Python files | 62 (11,471 lines) | See `src/README.md` for a file-by-file listing with line counts |
 | — data pipeline | 4 | `preprocess.py`, `text_encoder.py`, two text-variant builders |
 | — datasets and model | 6 | Four patch samplers, `model.py`, `localize.py` |
 | — training | 7 | One per arm, each taking `--seed` |
 | — evaluation | 15 | `evaluate_rq1.py` defines the metrics every other one imports |
 | — diagnostics | 4 | Noise probes, chance baseline, pre-flight localizer check |
 | — analysis | 12 | Recompute every reported statistic from the CSVs |
-| — figures | 14 | Draw all 41 figures from CSVs and logs |
+| — figures | 14 | Draw all 43 figures from CSVs and logs |
 | SLURM scripts | 45 | Including 11 `smoke_test_*.sbatch` for the 10-minute `dev` partition |
 | Cluster jobs | 120 | 34.2 GPU-hours, almost all on one RTX 2080 Ti |
 | Result tables | 76 CSVs | One row per (patient, region); RQ11/12/13 add a `threshold_method` column, and the RQ14 factorial adds `stride` and `weighting` |
 | Statistical tests | 171 | All paired, all BH-corrected across the accumulated family |
-| Figures | 41 | 29 in the main narrative, 9 added in the appendix pass, 3 for RQ14/RQ15 |
+| Figures | 43 | 29 in the main narrative, 9 added in the appendix pass, 3 for RQ14/RQ15 |
 | Trained checkpoints | 52 | Baseline ×3 seeds (last only), four ablations ×3 seeds ×2 checkpoints, RQ7 ×4 conditions ×3 seeds ×2 checkpoints, P′ |
 
 **Built-in correctness gates.** Three evaluation scripts verify themselves against earlier results rather than being trusted: `evaluate_rq8_compositionality.py` requires its "original" condition to reproduce RQ1's CSV; `evaluate_grounding_sweep.py` at window 32/stride 16 must reproduce RQ11's (212 of 213 rows bit-identical, the exception differing by 5×10⁻⁴ Dice from a tie in Otsu's 256-bin histogram); `evaluate_ablation_thresholds.py` requires its re-scored Otsu column to reproduce each arm's published CSV (pooled difference below 3.5×10⁻⁵). Two of the three caught real bugs during development.

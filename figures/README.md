@@ -1,6 +1,6 @@
 # `figures/` — generated report figures
 
-All 41 images here are regenerated from the per-patient CSVs in [`../results/`](../results/), the
+All 43 images here are regenerated from the per-patient CSVs in [`../results/`](../results/), the
 training logs in [`../logs/`](../logs/) and (for two panels) the preprocessed masks, by one of
 fourteen figure scripts in [`../src/`](../src/). None was drawn or edited by hand, so a figure and
 the corresponding table in the report cannot drift apart.
@@ -83,12 +83,14 @@ statistics as text.
 
 ## What the window result was measuring, and what the read-out discarded
 
-All three from `make_figures_rq14.py`; `analyze_rq14.py` prints the same statistics as text.
+All five from `make_figures_rq14.py`; `analyze_rq14.py` prints the same statistics as text.
 
 | File | The claim it carries | Report section |
 |---|---|---|
 | `fig_rq14_factorial.png` | The two paths out of the published protocol that the original sweep never separated, and the decomposition: sampling density is worth more on its own (+0.0761) than the whole effect credited to window size (+0.0724). | §7.13 |
 | `fig_rq14_pointing_grid.png` | Where the two mechanisms come apart. Sampling more finely lifts every region, but small enhancing tumor is zero at every 32³ condition whatever the stride and moves only when the window shrinks. | §7.13 |
+| `fig_rq14_readout_collapse.png` | The decomposition recomputed under the centre-weighted read-out: the sampling term halves and the receptive-field term vanishes. Beside it, the window curve at fixed stride 4, where Dice, pointing and the small-ET bin each peak at a different window. | §7.13 |
+| `fig_rq15_kernel.png` | The read-out's two free parameters. Width has an interior optimum at σ = w/4 with a detection-versus-delineation trade-off either side; shape barely matters, so the result is about centre-weighting rather than the Gaussian. | §7.14 |
 | `fig_rq15_accumulation.png` | Uniform against centre-weighted accumulation: every calibrated rule improves and Otsu alone falls, the tied plateau collapses from 4,096 voxels to 1, and the free read-out fix beats the best densely-sampled cell at 71× fewer forward passes. | §7.14 |
 
 ## Cached intermediates
